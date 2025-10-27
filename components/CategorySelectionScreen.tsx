@@ -23,7 +23,7 @@ const CategorySelectionScreen: React.FC<CategorySelectionScreenProps> = ({ onSel
           <button
             key={cat.name}
             onClick={() => onSelectCategory(cat.name)}
-            className="text-left p-4 sm:p-6 bg-gray-700/60 rounded-lg border-2 border-gray-600 hover:bg-purple-600/50 hover:border-purple-500 transition-all duration-300 transform hover:scale-105"
+            className="text-left p-4 sm:p-6 bg-gray-700/60 rounded-lg border-2 border-gray-600 hover:bg-purple-600/50 hover:border-purple-500 transition-all duration-300 transform hover:scale-105 active:scale-100"
           >
             <div className="text-3xl sm:text-4xl mb-2">{cat.emoji}</div>
             <h2 className="text-xl sm:text-2xl font-bold">{cat.name}</h2>

@@ -13,7 +13,7 @@ const EmojiReactionPanel: React.FC<EmojiReactionPanelProps> = ({ onReact }) => {
         <button 
           key={emoji}
           onClick={() => onReact(emoji)}
-          className="text-3xl p-2 rounded-full hover:bg-purple-500/50 transition-colors transform hover:scale-110"
+          className="text-3xl p-2 rounded-full hover:bg-purple-500/50 transition-colors transform hover:scale-110 active:scale-100"
           aria-label={`React with ${emoji}`}
         >
           {emoji}

@@ -40,7 +40,7 @@ const PowerUpPanel: React.FC<PowerUpPanelProps> = ({ player, onUsePowerUp, gameS
             key={`${powerUp.id}-${index}`}
             onClick={() => onUsePowerUp(powerUp.id)}
             disabled={isDisabled}
-            className={`flex items-center gap-2 p-2 rounded-full transition-colors transform hover:scale-105 ${isDisabled ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
+            className={`flex items-center gap-2 p-2 rounded-full transition-all transform hover:scale-105 ${isDisabled ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 active:scale-100'}`}
             title={`${powerUp.name}: ${powerUp.description}`}
             aria-label={`Use ${powerUp.name}`}
           >

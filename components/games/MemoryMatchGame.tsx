@@ -114,10 +114,13 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
             disabled={card.isFlipped || isFinished}
             className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg text-3xl transition-transform duration-300 transform-style-3d 
                 ${card.isFlipped ? 'rotate-y-180' : ''}
-                ${card.isMatched ? 'opacity-50' : ''}`}
+                ${card.isMatched ? 'card-matched' : ''}`}
           >
-            <div className={`absolute inset-0 flex items-center justify-center backface-hidden rounded-lg ${card.isMatched ? 'bg-green-700' : 'bg-purple-600'}`}>
-              {card.isFlipped ? card.emoji : '?'}
+            <div className={`absolute inset-0 flex items-center justify-center backface-hidden rounded-lg bg-purple-600`}>
+              ?
+            </div>
+             <div className={`absolute inset-0 flex items-center justify-center backface-hidden rounded-lg rotate-y-180 ${card.isMatched ? 'bg-green-700' : 'bg-blue-600'}`}>
+              {card.emoji}
             </div>
           </button>
         ))}

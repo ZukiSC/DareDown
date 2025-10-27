@@ -34,6 +34,7 @@ const PILINO_DARES = [
   "Pretend to cross a busy Manila street, complete with sound effects.",
   "Explain why a tabo is the superior bathroom tool.",
   "Sing the chorus of 'Bebot' by the Black Eyed Peas.",
+  "I chat si crush ng Hi.",
 ];
 
 /**

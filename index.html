@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DareDown</title>
@@ -12,6 +12,7 @@
       body {
         font-family: 'Poppins', sans-serif;
       }
+       /* --- Animations --- */
        @keyframes fade-in {
         0% { opacity: 0; }
         100% { opacity: 1; }
@@ -19,12 +20,49 @@
       .animate-fade-in {
         animation: fade-in 0.5s ease-out forwards;
       }
+       @keyframes fade-in-fast {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+      .animate-fade-in-fast {
+        animation: fade-in-fast 0.2s ease-out forwards;
+      }
       @keyframes slide-in {
         0% { transform: translateX(20px); opacity: 0; }
         100% { transform: translateX(0); opacity: 1; }
       }
       .animate-slide-in {
         animation: slide-in 0.4s ease-out forwards;
+      }
+      @keyframes pop-in {
+        0% { opacity: 0; transform: scale(0.95); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+      .animate-pop-in {
+        animation: pop-in 0.3s ease-out forwards;
+      }
+      @keyframes slide-down {
+        0% { opacity: 0; transform: translateY(-30px) scale(0.95); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .animate-slide-down {
+        animation: slide-down 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      }
+      @keyframes slide-in-bottom {
+        0% { opacity: 0; transform: translateY(15px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .animate-slide-in-bottom {
+        animation: slide-in-bottom 0.3s ease-out forwards;
+      }
+      @keyframes shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+      }
+      .animate-shake {
+        animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
       }
        @keyframes confetti-fall {
         0% { transform: translateY(-100%) rotateZ(0deg); opacity: 1; }
@@ -36,6 +74,119 @@
       }
       .animate-float-up {
         animation: float-up 3s ease-out forwards;
+      }
+      @keyframes pulse-subtle {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+      .animate-pulse-subtle {
+        animation: pulse-subtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+      }
+      .animate-scale-in {
+        animation: scale-in 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      }
+      @keyframes slide-in-up {
+        from {
+          transform: translateY(50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      .animate-slide-in-up {
+        animation: slide-in-up 0.4s ease-out forwards;
+      }
+
+      /* --- New & Enhanced Animations --- */
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 5px 2px rgba(250, 204, 21, 0.5); }
+        50% { box-shadow: 0 0 20px 8px rgba(250, 204, 21, 0.2); }
+      }
+      .animate-glow {
+        animation: glow 2.5s ease-in-out infinite;
+      }
+      
+      @keyframes glow-host {
+        0%, 100% { box-shadow: 0 0 5px 2px rgba(192, 132, 252, 0.4); } /* purple-300 */
+        50% { box-shadow: 0 0 16px 6px rgba(192, 132, 252, 0.2); }
+      }
+      .animate-glow-host {
+        animation: glow-host 2.5s ease-in-out infinite;
+      }
+
+      @keyframes boing-in {
+        0% { opacity: 0; transform: scale(0.3); }
+        50% { opacity: 1; transform: scale(1.05); }
+        70% { transform: scale(0.9); }
+        100% { transform: scale(1); }
+      }
+      .animate-boing-in {
+        animation: boing-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+      
+      @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+      .animate-shimmer::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        animation: shimmer 1.5s linear infinite;
+        background: linear-gradient(to right, transparent 20%, rgba(255,255,255,0.1) 50%, transparent 80%);
+        background-size: 1000px 100%;
+      }
+
+      /* Base transition for smoother UI interactions */
+      .transition-base {
+        transition: all 0.2s ease-in-out;
+      }
+      
+      /* Card matched animation for Memory Game */
+      .card-matched {
+        transform: scale(0);
+        opacity: 0;
+        transition: transform 0.4s ease-in, opacity 0.4s ease-in;
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #2d3748; /* gray-800 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4a5568; /* gray-600 */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #718096; /* gray-500 */
+      }
+
+      /* Greeting Bubble for Live Dare */
+      .greeting-bubble {
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        text-align: center;
       }
     </style>
   <script type="importmap">

@@ -7,6 +7,12 @@ const AVATARS: Avatar[] = [
     { id: 'avatar_3', emoji: '🧙', name: 'Wizard' },
     { id: 'avatar_4', emoji: '🧑‍🎤', name: 'Rockstar' },
     { id: 'avatar_5', emoji: '🤖', name: 'Robot' },
+    { id: 'avatar_6', emoji: '🦖', name: 'Dino' },
+    { id: 'avatar_7', emoji: '🦄', name: 'Unicorn' },
+    { id: 'avatar_8', emoji: '👨‍🍳', name: 'Chef' },
+    { id: 'avatar_9', emoji: '🕵️', name: 'Detective' },
+    { id: 'avatar_10', emoji: '👽', name: 'Alien' },
+
 ];
 
 // --- COLOR THEMES ---
@@ -17,6 +23,8 @@ const COLORS: ColorTheme[] = [
     { id: 'color_4', name: 'Red', primaryClass: 'bg-red-500', secondaryClass: 'border-red-300' },
     { id: 'color_5', name: 'Yellow', primaryClass: 'bg-yellow-500', secondaryClass: 'border-yellow-300' },
     { id: 'color_6', name: 'Pink', primaryClass: 'bg-pink-500', secondaryClass: 'border-pink-300' },
+    { id: 'color_7', name: 'Indigo', primaryClass: 'bg-indigo-500', secondaryClass: 'border-indigo-300' },
+    { id: 'color_8', name: 'Teal', primaryClass: 'bg-teal-500', secondaryClass: 'border-teal-300' },
 ];
 
 // --- BADGES (all are unlockable) ---

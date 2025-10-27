@@ -14,6 +14,7 @@ interface GameScreenProps {
   round: number;
   reactions: { playerId: string, emoji: string }[];
   extraTime: number;
+  onViewProfile: (playerId: string) => void;
 }
 
 const gameComponents = {
@@ -30,7 +31,7 @@ const gameTitles = {
     MEMORY_MATCH: 'Memory Match!',
 }
 
-const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlayerId, onMiniGameEnd, round, reactions, extraTime }) => {
+const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlayerId, onMiniGameEnd, round, reactions, extraTime, onViewProfile }) => {
   const [isBriefing, setIsBriefing] = useState(true);
   const [countdown, setCountdown] = useState(3);
 
@@ -97,7 +98,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlay
       <div className="flex justify-center gap-4 mt-4">
         {players.map(p => {
             const reaction = reactions.find(r => r.playerId === p.id)?.emoji;
-            return <PlayerAvatar key={p.id} player={p} isCurrentPlayer={p.id === currentPlayerId} reaction={reaction} />
+            return <PlayerAvatar key={p.id} player={p} isCurrentPlayer={p.id === currentPlayerId} reaction={reaction} onClick={onViewProfile} />
         })}
       </div>
     </div>

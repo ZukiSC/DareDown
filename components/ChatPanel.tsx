@@ -29,7 +29,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReactT
   };
 
   return (
-    <div className="w-full h-full lg:w-80 lg:h-[85vh] bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-purple-500/30 flex flex-col p-3">
+    <div className="w-full h-full lg:w-80 lg:h-[85vh] backdrop-blur-sm rounded-2xl border border-purple-500/30 flex flex-col p-3">
       <div className="flex justify-between items-center mb-3 border-b border-purple-500/30 pb-2">
          <h2 className="text-xl font-bold text-purple-400 text-center flex-grow">Room Chat</h2>
          {onClose && (
@@ -56,7 +56,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReactT
           className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
           maxLength={120}
         />
-        <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-2 rounded-lg transition-colors">
+        <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-2 rounded-lg transition-colors transform active:scale-95">
           Send
         </button>
       </form>

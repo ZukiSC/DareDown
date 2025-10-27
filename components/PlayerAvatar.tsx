@@ -7,24 +7,41 @@ interface PlayerAvatarProps {
   isCurrentPlayer: boolean;
   reaction?: string | null;
   isWinner?: boolean;
+  onClick?: (playerId: string) => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner }) => {
+const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner, onClick, className, style }) => {
   const avatar = useMemo(() => getAvatarById(player.customization.avatarId), [player.customization.avatarId]);
   const color = useMemo(() => getColorById(player.customization.colorId), [player.customization.colorId]);
   const badge = useMemo(() => player.customization.badgeId ? getBadgeById(player.customization.badgeId) : null, [player.customization.badgeId]);
   
+  // Treat undefined as online for robustness
+  const isOnline = player.isOnline !== false;
+
   if (!avatar || !color) {
-      return null; // or a fallback
+      return null;
   }
 
+  const handleAvatarClick = () => {
+    if(onClick) {
+        onClick(player.id);
+    }
+  }
+
+  const containerClasses = `relative flex flex-col items-center p-2 rounded-lg transition-all duration-300 w-full sm:w-28 text-center
+    ${isCurrentPlayer ? 'bg-purple-600/70' : 'bg-gray-700/50'}
+    ${isWinner ? 'shadow-lg shadow-yellow-400/50 animate-glow' : ''}
+    ${player.isHost && !isWinner ? 'animate-glow-host' : ''}
+    ${onClick ? 'cursor-pointer hover:bg-purple-600/50' : ''}
+    ${className || ''}`;
+
   return (
-    <div className={`relative flex flex-col items-center p-2 rounded-lg transition-all duration-300 w-full sm:w-28 text-center
-      ${isCurrentPlayer ? 'bg-purple-600/70' : 'bg-gray-700/50'}
-      ${isWinner ? 'shadow-lg shadow-yellow-400/50' : ''}`}>
+    <div className={containerClasses} onClick={handleAvatarClick} style={style}>
        {reaction && (
         <div 
-          key={Date.now()} // Force re-render to restart animation
+          key={Date.now()}
           className="absolute -top-12 text-5xl animate-ping-once z-20"
           style={{ animation: 'ping-once 1.5s cubic-bezier(0, 0, 0.2, 1) forwards' }}
         >
@@ -33,11 +50,18 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
       )}
       <div className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full ${color.primaryClass} mb-2 flex items-center justify-center text-3xl sm:text-4xl font-bold border-4 ${isCurrentPlayer ? color.secondaryClass : 'border-transparent'}`}>
         <span>{avatar.emoji}</span>
+
+        {/* Online Status Indicator */}
+        <span
+          className={`absolute -bottom-1 -left-1 w-4 h-4 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-400 animate-pulse-subtle' : 'bg-gray-500'}`}
+          title={isOnline ? 'Online' : 'Offline'}
+        ></span>
+
         {badge && (
           <span className="absolute -bottom-2 -right-2 text-xl sm:text-2xl bg-gray-800 rounded-full p-1" title={badge.name}>{badge.emoji}</span>
         )}
         {player.isHost && !isWinner && (
-          <span className="absolute -top-2 -right-2 text-xl sm:text-2xl" title="Host">👑</span>
+          <span className="absolute -top-2 -right-2 text-2xl sm:text-3xl" title="Host">👑</span>
         )}
          {isWinner && (
           <span className="absolute -top-3 -right-3 text-3xl sm:text-4xl" title="Winner">🏆</span>

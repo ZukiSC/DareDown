@@ -35,7 +35,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSav
           <h2 className="text-2xl font-semibold mb-3">Avatar</h2>
           <div className="flex flex-wrap justify-center gap-3">
             {avatars.map(avatar => (
-              <button key={avatar.id} onClick={() => handleSelect('avatarId', avatar.id)} className={`p-2 rounded-full transition-all ${customization.avatarId === avatar.id ? 'bg-purple-600 scale-110' : 'bg-gray-700'}`}>
+              <button key={avatar.id} onClick={() => handleSelect('avatarId', avatar.id)} className={`p-2 rounded-full transition-all transform active:scale-95 ${customization.avatarId === avatar.id ? 'bg-purple-600 scale-110' : 'bg-gray-700 hover:scale-105'}`}>
                 <span className="text-4xl">{avatar.emoji}</span>
               </button>
             ))}
@@ -47,7 +47,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSav
           <h2 className="text-2xl font-semibold mb-3">Color</h2>
           <div className="flex flex-wrap justify-center gap-3">
             {colors.map(color => (
-              <button key={color.id} onClick={() => handleSelect('colorId', color.id)} className={`w-12 h-12 rounded-full transition-all border-4 ${color.primaryClass} ${customization.colorId === color.id ? 'border-white scale-110' : 'border-transparent'}`} />
+              <button key={color.id} onClick={() => handleSelect('colorId', color.id)} className={`w-12 h-12 rounded-full transition-all border-4 transform active:scale-95 ${color.primaryClass} ${customization.colorId === color.id ? 'border-white scale-110' : 'hover:scale-105 border-transparent'}`} />
             ))}
           </div>
         </div>
@@ -56,13 +56,13 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSav
         <div>
           <h2 className="text-2xl font-semibold mb-3">Badge</h2>
           <div className="flex flex-wrap justify-center gap-3">
-            <button onClick={() => handleSelect('badgeId', null)} className={`p-2 rounded-full transition-all ${!customization.badgeId ? 'bg-purple-600 scale-110' : 'bg-gray-700'}`}>
+            <button onClick={() => handleSelect('badgeId', null)} className={`p-2 rounded-full transition-all transform active:scale-95 ${!customization.badgeId ? 'bg-purple-600 scale-110' : 'bg-gray-700 hover:scale-105'}`}>
                 <span className="text-4xl">🚫</span>
             </button>
             {badges.map(badge => {
               const unlocked = isUnlocked(badge);
               return (
-                <button key={badge.id} onClick={() => unlocked && handleSelect('badgeId', badge.id)} disabled={!unlocked} className={`relative p-2 rounded-full transition-all ${customization.badgeId === badge.id ? 'bg-purple-600 scale-110' : 'bg-gray-700'} ${!unlocked ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <button key={badge.id} onClick={() => unlocked && handleSelect('badgeId', badge.id)} disabled={!unlocked} className={`relative p-2 rounded-full transition-all transform active:scale-95 ${customization.badgeId === badge.id ? 'bg-purple-600 scale-110' : 'bg-gray-700'} ${!unlocked ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}>
                   <span className="text-4xl">{badge.emoji}</span>
                   {!unlocked && <span className="absolute bottom-0 right-0 text-xl">🔒</span>}
                 </button>
@@ -72,7 +72,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSav
         </div>
       </div>
 
-      <button onClick={() => onSave(customization)} className="w-full max-w-sm mt-6 py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold text-xl rounded-lg shadow-lg">
+      <button onClick={() => onSave(customization)} className="w-full max-w-sm mt-6 py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold text-xl rounded-lg shadow-lg transform transition-transform active:scale-95">
         Save & Join Lobby
       </button>
     </div>

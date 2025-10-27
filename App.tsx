@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, Player, Dare, Category, Challenge, PlayerCustomization, Badge, PowerUp, PowerUpType, ChatMessage } from './types';
+
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { GameState, Player, Dare, Category, Challenge, PlayerCustomization, Badge, PowerUp, PowerUpType, ChatMessage, PrivateChatMessage, PlayerStats, FriendRequest, GameHistoryEntry, FloatingGreeting } from './types';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
 import DareScreen from './components/DareScreen';
@@ -11,32 +12,57 @@ import CustomizationScreen from './components/CustomizationScreen';
 import EmojiReactionPanel from './components/EmojiReactionPanel';
 import PowerUpPanel from './components/PowerUpPanel';
 import ChatPanel from './components/ChatPanel';
+import FriendsPanel from './components/FriendsPanel';
+import PlayerProfileModal from './components/PlayerProfileModal';
+import PrivateChatWindow from './components/PrivateChatWindow';
+import DareArchiveModal from './components/DareArchiveModal';
+import ReplayViewerModal from './components/ReplayViewerModal';
+import MainMenuScreen from './components/MainMenuScreen';
 import { preloadSounds, playSound, toggleMute } from './services/audioService';
 import { getChallengeForRoom } from './services/challengeService';
-import { getBadgeById } from './services/customizationService';
+import { getBadgeById, getAvatarById, getColorById } from './services/customizationService';
 import { getRandomPowerUp, getPowerUpById } from './services/powerUpService';
 import { requestNotificationPermission, showLocalNotification } from './services/notificationService';
 import { generateDare } from './services/geminiService';
 
 // --- MOCK DATA & SIMULATION ---
-const MOCK_PLAYERS: Player[] = [
-  { 
-    id: 'p1', name: 'Player 1', score: 0, isHost: true, 
-    customization: { avatarId: 'avatar_1', colorId: 'color_1', badgeId: null },
-    unlocks: [], powerUps: ['SKIP_DARE'],
-  },
-];
-const MAX_ROUNDS = 5;
+const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category'>[] = Array.from({ length: 15 }, (_, i) => ({
+    id: `p${i + 1}`,
+    name: `Player ${i + 1}`,
+    customization: { avatarId: `avatar_${(i % 10) + 1}`, colorId: `color_${(i % 8) + 1}`, badgeId: null },
+    unlocks: [],
+    stats: { wins: Math.floor(Math.random() * 20), daresCompleted: Math.floor(Math.random() * 50), daresFailed: Math.floor(Math.random() * 15) },
+    friends: [],
+    friendRequests: [],
+    gameHistory: [],
+    isOnline: Math.random() > 0.3, // 70% chance of being online
+}));
+
+// Setup initial state for the current user
+// FIX: Explicitly type initialPlayer to ensure powerUps is PowerUpType[] not string[].
+const initialPlayer: Player = {
+    ...MOCK_ALL_PLAYERS_DATA[0],
+    score: 0, isHost: false, powerUps: ['SKIP_DARE'],
+    friends: ['p3', 'p5'], // Friends with Player 3 and 5
+    friendRequests: [{ fromId: 'p8', fromName: 'Player 8', fromCustomization: MOCK_ALL_PLAYERS_DATA[7].customization, status: 'pending' as const }],
+};
+MOCK_ALL_PLAYERS_DATA[0] = initialPlayer;
+MOCK_ALL_PLAYERS_DATA[2].friends.push('p1');
+MOCK_ALL_PLAYERS_DATA[4].friends.push('p1');
+
+
 type ActiveReaction = { id: string; playerId: string; emoji: string };
 type Notification = { message: string, emoji?: string };
 type LoadingState = { active: boolean; message: string };
 // --- END MOCK DATA ---
 
 export default function App() {
-  const [gameState, setGameState] = useState<GameState>(GameState.CATEGORY_SELECTION);
-  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
-  const [currentPlayer, setCurrentPlayer] = useState<Player>(MOCK_PLAYERS[0]);
+  const [gameState, setGameState] = useState<GameState>(GameState.MAIN_MENU);
+  const [allPlayers, setAllPlayers] = useState<Player[]>(MOCK_ALL_PLAYERS_DATA.map(p => ({ ...p, score: 0, isHost: false, powerUps: [], category: undefined })));
+  const [players, setPlayers] = useState<Player[]>([initialPlayer]); // Players in the current room
+  const [currentPlayer, setCurrentPlayer] = useState<Player>(initialPlayer);
   const [currentRound, setCurrentRound] = useState(0);
+  const [maxRounds, setMaxRounds] = useState(5);
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
   const [roundLoser, setRoundLoser] = useState<Player | null>(null);
   const [suddenDeathPlayers, setSuddenDeathPlayers] = useState<Player[]>([]);
@@ -51,6 +77,19 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
+
+  // Social Feature States
+  const [isFriendsPanelOpen, setIsFriendsPanelOpen] = useState(false);
+  const [viewingProfile, setViewingProfile] = useState<Player | null>(null);
+  const [privateChats, setPrivateChats] = useState<{ [key: string]: PrivateChatMessage[] }>({});
+  
+  // Replay Feature States
+  const [dareArchive, setDareArchive] = useState<Dare[]>([]);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [viewingReplay, setViewingReplay] = useState<Dare | null>(null);
+
+  // Live Greeting State
+  const [greetings, setGreetings] = useState<FloatingGreeting[]>([]);
 
 
   useEffect(() => {
@@ -70,28 +109,22 @@ export default function App() {
   // --- MOCK SOCKET.IO LISTENERS ---
   useEffect(() => {
     const playerJoinInterval = setInterval(() => {
-      if (gameState !== GameState.MINIGAME && gameState !== GameState.DARE_SCREEN && players.length < 8) {
-        const newPlayerId = `p${players.length + 1}`;
-        const categories: Category[] = ['General', 'Trivia', 'Programming', 'Speed/Reflex'];
-        const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-        const newPlayer: Player = {
-          id: newPlayerId, name: `Player ${players.length + 1}`, score: 0, isHost: false,
-          category: randomCategory,
-          customization: { avatarId: `avatar_${(players.length % 4) + 2}`, colorId: `color_${(players.length % 5) + 2}`, badgeId: null },
-          unlocks: [],
-          powerUps: [],
-        };
-        setPlayers(prev => [...prev, newPlayer]);
+      if (gameState === GameState.LOBBY && players.length < 8) {
+        const nonRoomPlayers = allPlayers.filter(ap => !players.some(p => p.id === ap.id) && ap.id !== currentPlayer.id);
+        if(nonRoomPlayers.length === 0) return;
+        const newPlayer = nonRoomPlayers[Math.floor(Math.random() * nonRoomPlayers.length)];
+
+        setPlayers(prev => [...prev, { ...newPlayer, score: 0, isHost: false }]);
       }
     }, 5000);
     return () => clearInterval(playerJoinInterval);
-  }, [gameState, players.length]);
+  }, [gameState, players, allPlayers, currentPlayer.id]);
   
     // Simulate bot chat messages
     useEffect(() => {
       const chatInterval = setInterval(() => {
         const bots = players.filter(p => p.id !== currentPlayer.id);
-        if (bots.length > 0 && Math.random() < 0.25) { // 25% chance to chat every 6 seconds
+        if (bots.length > 0 && Math.random() < 0.25) { 
           const bot = bots[Math.floor(Math.random() * bots.length)];
           const messages = {
               [GameState.LOBBY]: ["Let's go!", "Who's ready to lose?", "This is gonna be fun!"],
@@ -117,26 +150,61 @@ export default function App() {
       return () => clearInterval(chatInterval);
     }, [players, currentPlayer.id, gameState]);
 
+    // Host Migration Logic
+    useEffect(() => {
+        if (gameState !== GameState.LOBBY) return;
+
+        const hostExists = players.some(p => p.isHost);
+        if (!hostExists && players.length > 0) {
+            const newHost = players[0];
+            const newPlayers = players.map((p, index) => 
+                index === 0 ? { ...p, isHost: true } : p
+            );
+            setPlayers(newPlayers);
+            if (newHost.id === currentPlayer.id) {
+                setCurrentPlayer(newPlayers[0]);
+            }
+            showNotification(`${newHost.name} is the new host!`, '👑');
+        }
+    }, [players, showNotification, gameState, currentPlayer.id]);
+
+
+  const updatePlayerInAllLists = (updatedPlayer: Player) => {
+      setCurrentPlayer(updatedPlayer);
+      setAllPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+      setPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+  };
+
+  const handleCreateLobby = () => {
+    // The player creating the lobby becomes the host.
+    const hostPlayer = { ...currentPlayer, isHost: true };
+    // This player is now the only one in the new lobby's player list.
+    setPlayers([hostPlayer]);
+    // Also update the currentPlayer state to reflect host status.
+    setCurrentPlayer(hostPlayer);
+    // And update the master list of all players.
+    setAllPlayers(prev => prev.map(p => p.id === hostPlayer.id ? hostPlayer : p));
+
+    setGameState(GameState.CATEGORY_SELECTION);
+    playSound('tap');
+  };
 
   const handleCategorySelect = (category: Category) => {
     if (isSwappingCategory) {
         const updatedPlayer = { ...currentPlayer, category };
-        setCurrentPlayer(updatedPlayer);
-        setPlayers(prev => prev.map(p => p.id === currentPlayer.id ? updatedPlayer : p));
+        updatePlayerInAllLists(updatedPlayer);
         setIsSwappingCategory(false);
         showNotification('Category swapped!');
     } else {
         const updatedPlayer = { ...currentPlayer, category };
-        setCurrentPlayer(updatedPlayer);
-        setPlayers(prev => prev.map(p => p.id === currentPlayer.id ? updatedPlayer : p));
+        updatePlayerInAllLists(updatedPlayer);
         setGameState(GameState.CUSTOMIZATION);
     }
   };
   
   const handleCustomizationSave = (customization: PlayerCustomization) => {
     const updatedPlayer = { ...currentPlayer, customization };
-    setCurrentPlayer(updatedPlayer);
-    setPlayers(prev => prev.map(p => p.id === currentPlayer.id ? updatedPlayer : p));
+    updatePlayerInAllLists(updatedPlayer);
     setGameState(GameState.LOBBY);
   };
   
@@ -155,27 +223,58 @@ export default function App() {
   }, [generateNextChallenge]);
 
   const handleEndOfGame = useCallback(() => {
-    // Check for winner unlock
     const winner = [...players].sort((a,b) => b.score - a.score)[0];
+    
+    // Create Game History
+    const gameHistoryEntry: GameHistoryEntry = {
+        gameId: `game_${Date.now()}`,
+        date: Date.now(),
+        players: players.map(p => ({ id: p.id, name: p.name, customization: p.customization })),
+        winnerId: winner.id,
+        dare: currentDare ? {
+            dareId: currentDare.id,
+            text: currentDare.text,
+            assigneeName: players.find(p => p.id === currentDare.assigneeId)?.name || 'Unknown',
+            completed: currentDare.status === 'completed',
+            replayUrl: currentDare.replayUrl
+        } : undefined
+    };
+
+    // Update stats for all players in the room
+    setAllPlayers(prevAll => prevAll.map(p => {
+        if (players.some(roomPlayer => roomPlayer.id === p.id)) {
+            const newHistory = [...p.gameHistory, gameHistoryEntry];
+            let newStats = { ...p.stats };
+            if (p.id === winner.id) {
+                newStats.wins += 1;
+            }
+            return { ...p, gameHistory: newHistory, stats: newStats };
+        }
+        return p;
+    }));
+
+    // Check for winner unlock
     if (winner && !winner.unlocks.includes('badge_winner')) {
-        const badge = getBadgeById('badge_winner');
-        setNewUnlock(badge);
-        setPlayers(prev => prev.map(p => p.id === winner.id ? { ...p, unlocks: [...p.unlocks, 'badge_winner'] } : p));
+        setNewUnlock(getBadgeById('badge_winner'));
+        setAllPlayers(prev => prev.map(p => p.id === winner.id ? { ...p, unlocks: [...p.unlocks, 'badge_winner'] } : p));
     }
+
     playSound('winGame');
     setGameState(GameState.LEADERBOARD);
-  }, [players]);
+  }, [players, currentDare]);
 
   const handleNextRound = useCallback(() => {
     setNewUnlock(null);
     setExtraTime(0);
 
-    // Award a power-up to a random non-loser player
     const potentialRecipients = players.filter(p => p.id !== roundLoser?.id);
     if(potentialRecipients.length > 0) {
         const recipient = potentialRecipients[Math.floor(Math.random() * potentialRecipients.length)];
         const newPowerUp = getRandomPowerUp();
+        
+        setAllPlayers(prev => prev.map(p => p.id === recipient.id ? { ...p, powerUps: [...p.powerUps, newPowerUp.id] } : p));
         setPlayers(prev => prev.map(p => p.id === recipient.id ? { ...p, powerUps: [...p.powerUps, newPowerUp.id] } : p));
+        
         if (recipient.id === currentPlayer.id) {
             setNewUnlock(newPowerUp);
         }
@@ -184,7 +283,7 @@ export default function App() {
     }
 
     const nextRoundNumber = currentRound + 1;
-    if (nextRoundNumber > MAX_ROUNDS) {
+    if (nextRoundNumber > maxRounds) {
         handleEndOfGame();
         return;
     }
@@ -195,7 +294,7 @@ export default function App() {
     setCurrentDare(null);
     setSuddenDeathPlayers([]);
     setGameState(GameState.MINIGAME);
-  }, [currentRound, generateNextChallenge, handleEndOfGame, players, roundLoser, currentPlayer.id, showNotification]);
+  }, [currentRound, generateNextChallenge, handleEndOfGame, players, roundLoser, currentPlayer.id, showNotification, maxRounds]);
 
    const handleMiniGameEnd = useCallback((loserIds: string[]) => {
     if (loserIds.length === 0) {
@@ -235,7 +334,7 @@ export default function App() {
         if (loser.id === currentPlayer.id) {
             showLocalNotification("It's your turn!", { body: `Your dare is: ${newDare.text}` });
         }
-    }, 1500); // Simulate a short delay for dramatic effect
+    }, 1500);
 
   }, [players, currentPlayer.id]);
   
@@ -253,23 +352,35 @@ export default function App() {
       setGameState(GameState.DARE_LIVE_STREAM);
   };
 
-  const handleLiveDareVote = (passed: boolean) => {
+  const handleLiveDareVote = (passed: boolean, replayUrl?: string) => {
       if (roundLoser && currentDare) {
           const newStatus = passed ? 'completed' : 'failed';
-          setCurrentDare({ ...currentDare, status: newStatus });
+          const completedDare: Dare = { ...currentDare, status: newStatus, replayUrl: replayUrl };
+          setCurrentDare(completedDare);
+
+          if(passed && replayUrl) {
+              setDareArchive(prev => [completedDare, ...prev]);
+          }
+
           playSound(passed ? 'dareComplete' : 'incorrect');
+          
+          setAllPlayers(prev => prev.map(p => {
+              if (p.id === roundLoser.id) {
+                  const newStats = { ...p.stats, daresCompleted: p.stats.daresCompleted + (passed ? 1 : 0), daresFailed: p.stats.daresFailed + (passed ? 0 : 1) };
+                  return { ...p, stats: newStats };
+              }
+              return p;
+          }));
 
           if (passed) {
               showLocalNotification("Dare Completed!", { body: `${roundLoser.name} completed their dare.` });
               const dareCompleter = players.find(p => p.id === roundLoser.id);
               if (dareCompleter && !dareCompleter.unlocks.includes('badge_dare_survivor')) {
-                  const badge = getBadgeById('badge_dare_survivor');
-                  setNewUnlock(badge);
-                  setPlayers(prev => prev.map(p => p.id === roundLoser.id ? { ...p, unlocks: [...p.unlocks, 'badge_dare_survivor'] } : p));
+                  setNewUnlock(getBadgeById('badge_dare_survivor'));
+                  setAllPlayers(prev => prev.map(p => p.id === roundLoser.id ? { ...p, unlocks: [...p.unlocks, 'badge_dare_survivor'] } : p));
               }
               setPlayers(prevPlayers => prevPlayers.map(p => p.id !== roundLoser.id ? { ...p, score: p.score + 10 } : p));
           } else {
-              // Penalty for failing
               setPlayers(prevPlayers => prevPlayers.map(p => p.id === roundLoser.id ? { ...p, score: p.score - 5 } : p));
           }
       }
@@ -286,8 +397,7 @@ export default function App() {
     updatedPowerUps.splice(powerUpIndex, 1);
     
     const updatedPlayer = { ...currentPlayer, powerUps: updatedPowerUps };
-    setCurrentPlayer(updatedPlayer);
-    setPlayers(prev => prev.map(p => p.id === currentPlayer.id ? updatedPlayer : p));
+    updatePlayerInAllLists(updatedPlayer);
     
     const powerUp = getPowerUpById(powerUpId);
     showNotification(`${powerUp?.name} used!`, powerUp?.emoji);
@@ -316,7 +426,6 @@ export default function App() {
     const newReaction = { id: `reaction_${Date.now()}`, playerId: currentPlayer.id, emoji };
     setActiveReactions(prev => [...prev, newReaction]);
     
-    // Simulate a bot reaction
     setTimeout(() => {
         const otherPlayer = players.find(p => p.id !== currentPlayer.id);
         if (otherPlayer) {
@@ -362,6 +471,144 @@ export default function App() {
       );
   };
 
+  const handleKickPlayer = (playerId: string) => {
+      const kickedPlayer = players.find(p => p.id === playerId);
+      if (kickedPlayer) {
+          setPlayers(prev => prev.filter(p => p.id !== playerId));
+          showNotification(`${kickedPlayer.name} was kicked from the lobby.`, '👋');
+      }
+  };
+
+  const handleLeaveLobby = () => {
+      // For the current user, reset their state
+      setPlayers([initialPlayer]);
+      setCurrentPlayer(initialPlayer);
+      setGameState(GameState.MAIN_MENU);
+      
+      showNotification("You left the lobby.", "👋");
+  };
+  
+  // --- SOCIAL HANDLERS ---
+  const handleViewProfile = (playerId: string) => {
+      const playerToShow = allPlayers.find(p => p.id === playerId);
+      if (playerToShow) {
+          setViewingProfile(playerToShow);
+      }
+  };
+
+  const handleSendFriendRequest = (targetId: string) => {
+      setAllPlayers(prev => prev.map(p => {
+          if (p.id === targetId) {
+              const newRequest: FriendRequest = {
+                  fromId: currentPlayer.id,
+                  fromName: currentPlayer.name,
+                  fromCustomization: currentPlayer.customization,
+                  status: 'pending'
+              };
+              return { ...p, friendRequests: [...p.friendRequests, newRequest] };
+          }
+          return p;
+      }));
+      showNotification(`Friend request sent!`);
+  };
+
+  const handleAcceptFriendRequest = (fromId: string) => {
+      const fromPlayer = allPlayers.find(p => p.id === fromId);
+      if (!fromPlayer) return;
+
+      const updatedCurrentPlayer = {
+          ...currentPlayer,
+          friends: [...currentPlayer.friends, fromId],
+          friendRequests: currentPlayer.friendRequests.filter(req => req.fromId !== fromId)
+      };
+      
+      setAllPlayers(prev => prev.map(p => {
+          if (p.id === fromId) return { ...p, friends: [...p.friends, currentPlayer.id] };
+          if (p.id === currentPlayer.id) return updatedCurrentPlayer;
+          return p;
+      }));
+      updatePlayerInAllLists(updatedCurrentPlayer);
+      showNotification(`You are now friends with ${fromPlayer.name}!`);
+  };
+
+  const handleDeclineFriendRequest = (fromId: string) => {
+      const updatedCurrentPlayer = {
+          ...currentPlayer,
+          friendRequests: currentPlayer.friendRequests.filter(req => req.fromId !== fromId)
+      };
+      updatePlayerInAllLists(updatedCurrentPlayer);
+  };
+  
+  const handleOpenPrivateChat = (friendId: string) => {
+      if (!privateChats[friendId]) {
+          setPrivateChats(prev => ({...prev, [friendId]: []}));
+      }
+  };
+  
+  const handleClosePrivateChat = (friendId: string) => {
+      setPrivateChats(prev => {
+          const newChats = {...prev};
+          delete newChats[friendId];
+          return newChats;
+      });
+  };
+
+  const handleSendPrivateMessage = (toId: string, text: string) => {
+      const newMessage: PrivateChatMessage = {
+          id: `priv_${Date.now()}`,
+          fromId: currentPlayer.id,
+          toId,
+          text,
+          timestamp: Date.now(),
+          isRead: false
+      };
+      setPrivateChats(prev => ({
+          ...prev,
+          [toId]: [...(prev[toId] || []), newMessage]
+      }));
+
+      // Simulate receiving a reply
+      setTimeout(() => {
+          const replyMessage: PrivateChatMessage = {
+              id: `priv_${Date.now()}_reply`,
+              fromId: toId,
+              toId: currentPlayer.id,
+              text: "Haha nice!",
+              timestamp: Date.now(),
+              isRead: false
+          };
+          setPrivateChats(prev => ({
+              ...prev,
+              [toId]: [...(prev[toId] || []), replyMessage]
+          }));
+          playSound('correct');
+      }, 2000);
+  };
+
+  const handleViewReplay = (dareId: string) => {
+      const dareToPlay = dareArchive.find(d => d.id === dareId);
+      if (dareToPlay) {
+          setViewingReplay(dareToPlay);
+      }
+  };
+
+  const handleSendGreeting = (content: string) => {
+    const newGreeting: FloatingGreeting = {
+      id: `greeting_${Date.now()}`,
+      fromName: currentPlayer.name,
+      fromColorClass: getColorById(currentPlayer.customization.colorId)?.secondaryClass || 'border-gray-300',
+      content,
+    };
+    setGreetings(prev => [...prev, newGreeting]);
+    playSound('tap');
+
+    // Remove after 5 seconds
+    setTimeout(() => {
+      setGreetings(prev => prev.filter(g => g.id !== newGreeting.id));
+    }, 5000);
+  };
+
+  // --- RENDER LOGIC ---
   const renderContent = () => {
     if (isSwappingCategory) {
         return (
@@ -373,45 +620,79 @@ export default function App() {
         )
     }
     
-    // Using a key on the container div forces a remount on gameState change, which allows for clean animations.
     const contentKey = `${gameState}-${currentRound}`;
 
     return (
         <div key={contentKey} className="w-full h-full animate-slide-in">
         {(() => {
             switch (gameState) {
+              case GameState.MAIN_MENU:
+                return <MainMenuScreen onCreateLobby={handleCreateLobby} />;
               case GameState.CATEGORY_SELECTION:
                 return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
               case GameState.CUSTOMIZATION:
                 return <CustomizationScreen player={currentPlayer} onSave={handleCustomizationSave} />;
               case GameState.LOBBY:
-                return <Lobby players={players} currentPlayer={currentPlayer} onStartGame={handleStartGame} reactions={activeReactions} notificationPermission={notificationPermission} onRequestNotifications={handleRequestNotifications} />;
+                return <Lobby 
+                    players={players} 
+                    currentPlayer={currentPlayer} 
+                    onStartGame={handleStartGame} 
+                    reactions={activeReactions} 
+                    notificationPermission={notificationPermission} 
+                    onRequestNotifications={handleRequestNotifications} 
+                    onViewProfile={handleViewProfile} 
+                    showNotification={showNotification}
+                    onKickPlayer={handleKickPlayer}
+                    onLeaveLobby={handleLeaveLobby}
+                    maxRounds={maxRounds}
+                    onMaxRoundsChange={setMaxRounds}
+                />;
               case GameState.MINIGAME:
-                return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} reactions={activeReactions} extraTime={extraTime} />;
+                return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} reactions={activeReactions} extraTime={extraTime} onViewProfile={handleViewProfile} />;
               case GameState.SUDDEN_DEATH:
-                return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} />;
+                return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} onViewProfile={handleViewProfile}/>;
               case GameState.DARE_SCREEN:
                 return <DareScreen loser={roundLoser} dare={currentDare} players={players} onStartLiveDare={handleStartLiveDare} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
               case GameState.DARE_LIVE_STREAM:
-                 return <LiveDareView dare={currentDare} loser={roundLoser} onVote={handleLiveDareVote} currentPlayer={currentPlayer} reactions={activeReactions} />;
+                 return <LiveDareView dare={currentDare} loser={roundLoser} onVote={handleLiveDareVote} currentPlayer={currentPlayer} reactions={activeReactions} greetings={greetings} onSendGreeting={handleSendGreeting} />;
               case GameState.LEADERBOARD:
-                return <Leaderboard players={players} isEndOfGame={currentRound >= MAX_ROUNDS} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer}/>;
+                return <Leaderboard players={players} isEndOfGame={currentRound >= maxRounds} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
               default:
-                return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
+                return <MainMenuScreen onCreateLobby={handleCreateLobby} />;
             }
         })()}
         </div>
     );
   };
+  
+  useEffect(() => {
+      // Keep room players and global players in sync for currentPlayer
+      const playerInAll = allPlayers.find(p => p.id === currentPlayer.id);
+      if(playerInAll && playerInAll !== currentPlayer) {
+          setCurrentPlayer(playerInAll);
+      }
+  }, [allPlayers, currentPlayer]);
 
   const showEmojiPanel = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY].includes(gameState);
   const showPowerUpPanel = [GameState.MINIGAME, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-  const showChatPanel = ![GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION].includes(gameState);
+  const showChatPanel = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION].includes(gameState);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
-      <div className="absolute top-4 left-4 text-2xl font-bold text-white drop-shadow-lg">DareDown</div>
-      <button onClick={handleToggleMute} className="absolute top-4 right-4 text-2xl p-2 rounded-full bg-purple-500/50 hover:bg-purple-500/80 transition-colors" aria-label={isMuted ? 'Unmute' : 'Mute'}>
+      <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
+        <div className="text-2xl font-bold text-white drop-shadow-lg">DareDown</div>
+        {gameState !== GameState.MAIN_MENU && (
+            <>
+                <button onClick={() => setIsFriendsPanelOpen(true)} className="px-4 py-2 text-sm font-semibold rounded-full bg-purple-500/70 hover:bg-purple-500/90 transition-colors transform active:scale-95">
+                    Social 💬
+                </button>
+                <button onClick={() => setIsArchiveOpen(true)} className="px-4 py-2 text-sm font-semibold rounded-full bg-blue-500/70 hover:bg-blue-500/90 transition-colors transform active:scale-95">
+                    Dare Archive 📼
+                </button>
+            </>
+        )}
+      </div>
+      <button onClick={handleToggleMute} className="absolute top-4 right-4 text-2xl p-2 rounded-full bg-purple-500/50 hover:bg-purple-500/80 transition-colors z-20" aria-label={isMuted ? 'Unmute' : 'Mute'}>
         {isMuted ? '🔇' : '🔊'}
       </button>
       
@@ -427,50 +708,55 @@ export default function App() {
           )}
         </main>
         
-        {/* Desktop Chat */}
         <div className="hidden lg:block">
             {showChatPanel && (
-                <ChatPanel
-                    messages={chatMessages}
-                    onSendMessage={handleSendMessage}
-                    onReactToMessage={handleReactToMessage}
-                    currentPlayerId={currentPlayer.id}
-                />
+                <ChatPanel messages={chatMessages} onSendMessage={handleSendMessage} onReactToMessage={handleReactToMessage} currentPlayerId={currentPlayer.id} />
             )}
         </div>
       </div>
       
-      {/* Mobile Chat */}
       {showChatPanel && (
           <>
-            <button
-                onClick={() => setIsChatOpen(true)}
-                className="lg:hidden fixed bottom-24 right-4 bg-purple-600 rounded-full p-3 shadow-lg z-30 animate-pulse"
-                aria-label="Open Chat"
-            >
+            <button onClick={() => setIsChatOpen(true)} className="lg:hidden fixed bottom-24 right-4 bg-purple-600 rounded-full p-3 shadow-lg z-30 animate-pulse" aria-label="Open Chat">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
             </button>
             {isChatOpen && (
                 <div className="lg:hidden fixed inset-0 bg-gray-900/90 z-40 animate-fade-in p-4">
-                    <ChatPanel
-                        messages={chatMessages}
-                        onSendMessage={handleSendMessage}
-                        onReactToMessage={handleReactToMessage}
-                        currentPlayerId={currentPlayer.id}
-                        onClose={() => setIsChatOpen(false)}
-                    />
+                    <ChatPanel messages={chatMessages} onSendMessage={handleSendMessage} onReactToMessage={handleReactToMessage} currentPlayerId={currentPlayer.id} onClose={() => setIsChatOpen(false)} />
                 </div>
             )}
           </>
       )}
 
-
       {showEmojiPanel && <EmojiReactionPanel onReact={handleEmojiReaction} />}
       {showPowerUpPanel && <PowerUpPanel player={currentPlayer} onUsePowerUp={handleUsePowerUp} gameState={gameState} isLoser={currentPlayer.id === roundLoser?.id} />}
 
-      {/* Unlock Notification */}
+      {isFriendsPanelOpen && (
+        <FriendsPanel
+          isOpen={isFriendsPanelOpen}
+          onClose={() => setIsFriendsPanelOpen(false)}
+          currentPlayer={currentPlayer}
+          allPlayers={allPlayers}
+          onSendRequest={handleSendFriendRequest}
+          onAcceptRequest={handleAcceptFriendRequest}
+          onDeclineRequest={handleDeclineFriendRequest}
+          onViewProfile={handleViewProfile}
+          onOpenChat={handleOpenPrivateChat}
+        />
+      )}
+      
+      {viewingProfile && (
+          <PlayerProfileModal player={viewingProfile} onClose={() => setViewingProfile(null)} onViewReplay={handleViewReplay} />
+      )}
+      
+      {Object.entries(privateChats).map(([friendId, messages]) => {
+          const friend = allPlayers.find(p => p.id === friendId);
+          if(!friend) return null;
+          return <PrivateChatWindow key={friendId} friend={friend} messages={messages} onSendMessage={(text) => handleSendPrivateMessage(friendId, text)} onClose={() => handleClosePrivateChat(friendId)} />
+      })}
+
       {newUnlock && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in p-4">
             <div className={`bg-gradient-to-br ${ 'unlockId' in newUnlock ? 'from-yellow-400 to-orange-500' : 'from-blue-400 to-purple-500' } p-1 rounded-xl shadow-2xl`}>
@@ -484,12 +770,29 @@ export default function App() {
         </div>
       )}
       
-      {/* General Notification */}
       {notification && (
-         <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-900/80 backdrop-blur-md p-4 rounded-xl shadow-lg flex items-center gap-4 z-40 animate-fade-in">
+         <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-900/80 backdrop-blur-md p-4 rounded-xl shadow-lg flex items-center gap-4 z-40 animate-slide-down">
             {notification.emoji && <span className="text-3xl">{notification.emoji}</span>}
             <p className="text-lg font-semibold">{notification.message}</p>
          </div>
+      )}
+
+      {isArchiveOpen && (
+        <DareArchiveModal 
+            isOpen={isArchiveOpen} 
+            onClose={() => setIsArchiveOpen(false)} 
+            archive={dareArchive}
+            allPlayers={allPlayers}
+            onPlay={handleViewReplay}
+        />
+      )}
+
+      {viewingReplay && (
+        <ReplayViewerModal
+            dare={viewingReplay}
+            player={allPlayers.find(p => p.id === viewingReplay.assigneeId)}
+            onClose={() => setViewingReplay(null)}
+        />
       )}
     </div>
   );

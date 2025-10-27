@@ -24,7 +24,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, onReact, cur
   const isMyMessage = message.playerId === currentPlayerId;
 
   return (
-    <div className={`group relative flex items-start gap-2 ${isMyMessage ? 'flex-row-reverse' : ''}`}>
+    <div className={`group relative flex items-start gap-2 animate-slide-in-bottom ${isMyMessage ? 'flex-row-reverse' : ''}`}>
       <div className={`flex-shrink-0 w-8 h-8 rounded-full ${color?.primaryClass} flex items-center justify-center text-lg border-2 ${color?.secondaryClass}`}>
         {avatar?.emoji}
       </div>

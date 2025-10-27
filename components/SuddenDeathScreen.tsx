@@ -6,9 +6,10 @@ import { playSound } from '../services/audioService';
 interface SuddenDeathScreenProps {
   players: Player[];
   onEnd: (loserId: string) => void;
+  onViewProfile: (playerId: string) => void;
 }
 
-const SuddenDeathScreen: React.FC<SuddenDeathScreenProps> = ({ players, onEnd }) => {
+const SuddenDeathScreen: React.FC<SuddenDeathScreenProps> = ({ players, onEnd, onViewProfile }) => {
     const [countdown, setCountdown] = useState(5);
 
     useEffect(() => {
@@ -30,7 +31,7 @@ const SuddenDeathScreen: React.FC<SuddenDeathScreenProps> = ({ players, onEnd })
             
             <div className="flex justify-center gap-4 my-8">
                 {players.map(p => (
-                    <PlayerAvatar key={p.id} player={p} isCurrentPlayer={true} />
+                    <PlayerAvatar key={p.id} player={p} isCurrentPlayer={true} onClick={onViewProfile} />
                 ))}
             </div>
 

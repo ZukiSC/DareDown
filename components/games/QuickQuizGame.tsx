@@ -93,7 +93,7 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
           let buttonClass = 'bg-purple-600 hover:bg-purple-700';
           if (isAnswered) {
               if (isCorrect) buttonClass = 'bg-green-600';
-              else if (isSelected && !isCorrect) buttonClass = 'bg-red-600';
+              else if (isSelected && !isCorrect) buttonClass = 'bg-red-600 animate-shake';
               else buttonClass = 'bg-gray-600 opacity-50';
           }
 
@@ -102,7 +102,7 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
               key={option}
               onClick={() => handleAnswerClick(option)}
               disabled={isAnswered}
-              className={`p-4 rounded-lg text-lg font-semibold transition-all duration-300 ${buttonClass}`}
+              className={`p-4 rounded-lg text-lg font-semibold transition-all duration-300 transform active:scale-95 ${buttonClass}`}
             >
               {option}
             </button>

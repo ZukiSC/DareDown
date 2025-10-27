@@ -63,7 +63,7 @@ const DareScreen: React.FC<DareScreenProps> = ({ loser, dare, onStartLiveDare, o
             <div className="w-full max-w-md z-10">
               <button
                 onClick={handleGoLiveClick}
-                className="w-full py-4 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-2xl rounded-lg shadow-lg transition-transform transform hover:scale-105 animate-pulse"
+                className="w-full py-4 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-2xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100 animate-pulse"
               >
                 Go Live! 🔴
               </button>
@@ -71,7 +71,7 @@ const DareScreen: React.FC<DareScreenProps> = ({ loser, dare, onStartLiveDare, o
               {hasSkipDare && (
                   <button
                       onClick={() => onUsePowerUp('SKIP_DARE')}
-                      className="w-full mt-4 py-3 px-6 bg-blue-500 hover:bg-blue-600 text-white font-bold text-md rounded-lg shadow-lg"
+                      className="w-full mt-4 py-3 px-6 bg-blue-500 hover:bg-blue-600 text-white font-bold text-md rounded-lg shadow-lg transform transition-transform active:scale-95"
                   >
                       Use Power-Up: Skip Dare 🏃‍♂️
                   </button>
@@ -91,10 +91,10 @@ const DareScreen: React.FC<DareScreenProps> = ({ loser, dare, onStartLiveDare, o
               Your camera and microphone will be activated and streamed to other players in this room. Please be respectful and follow community guidelines.
             </p>
             <div className="flex justify-center gap-4">
-              <button onClick={() => setShowConfirmation(false)} className="py-2 px-6 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg">
+              <button onClick={() => setShowConfirmation(false)} className="py-2 px-6 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transform transition-transform active:scale-95">
                 Cancel
               </button>
-              <button onClick={handleConfirmGoLive} className="py-2 px-8 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg">
+              <button onClick={handleConfirmGoLive} className="py-2 px-8 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transform transition-transform active:scale-95">
                 Confirm & Start
               </button>
             </div>

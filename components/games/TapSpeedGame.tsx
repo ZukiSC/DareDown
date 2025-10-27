@@ -78,11 +78,15 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
   return (
     <div className="flex flex-col items-center justify-center h-full text-center">
         <GameTimer duration={GAME_DURATION + extraTime} timeLeft={timeLeft} />
-        <p className="text-6xl font-bold mb-8">{taps}</p>
+        <p className="text-6xl font-bold mb-8">
+          <span key={taps} className="inline-block animate-boing-in">
+            {taps}
+          </span>
+        </p>
         <button 
             onClick={handleTap}
             disabled={timeLeft <= 0}
-            className="w-48 h-48 bg-red-500 rounded-full text-2xl font-bold text-white shadow-2xl transition-transform transform active:scale-95 disabled:bg-gray-600"
+            className="w-48 h-48 bg-red-500 rounded-full text-2xl font-bold text-white shadow-2xl transition-transform transform active:scale-95 active:bg-red-600 active:shadow-inner disabled:bg-gray-600"
         >
             TAP!
         </button>

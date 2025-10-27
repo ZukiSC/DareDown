@@ -1,5 +1,5 @@
 import React from 'react';
-import { Player, PowerUpType } from '../types';
+import { Player, PowerUpType, Dare } from '../types';
 import Confetti from './Confetti';
 import PlayerAvatar from './PlayerAvatar';
 
@@ -8,12 +8,16 @@ interface LeaderboardProps {
   isEndOfGame: boolean;
   onUsePowerUp: (powerUpId: PowerUpType) => void;
   currentPlayer: Player;
+  onViewProfile: (playerId: string) => void;
+  currentDare: Dare | null;
+  onViewReplay: (dareId: string) => void;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePowerUp, currentPlayer }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePowerUp, currentPlayer, onViewProfile, currentDare, onViewReplay }) => {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = sortedPlayers.length > 0 ? sortedPlayers[0] : null;
   const hasSwapCategory = currentPlayer.powerUps.includes('SWAP_CATEGORY');
+  const showReplayButton = currentDare?.status === 'completed' && currentDare.replayUrl;
 
   return (
     <div className="flex flex-col items-center h-full p-4 relative">
@@ -25,7 +29,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePo
           <div className="text-center mb-6">
               <p className="text-2xl text-yellow-400">🏆 WINNER 🏆</p>
               <div className="flex justify-center my-4">
-                <PlayerAvatar player={winner} isCurrentPlayer={winner.id === currentPlayer.id} isWinner={true} />
+                <PlayerAvatar player={winner} isCurrentPlayer={winner.id === currentPlayer.id} isWinner={true} onClick={onViewProfile}/>
               </div>
           </div>
       )}
@@ -33,7 +37,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePo
         {sortedPlayers.map((player, index) => (
           <div
             key={player.id}
-            className={`flex items-center justify-between p-3 my-2 rounded-lg transition-all duration-300
+            onClick={() => onViewProfile(player.id)}
+            style={{ animationDelay: `${index * 100}ms`}}
+            className={`flex items-center justify-between p-3 my-2 rounded-lg transition-all duration-300 cursor-pointer hover:bg-purple-500/20 animate-slide-in opacity-0
               ${index === 0 ? 'bg-yellow-500/30 border-l-4 border-yellow-400' : ''}
               ${index === 1 ? 'bg-gray-400/30 border-l-4 border-gray-300' : ''}
               ${index === 2 ? 'bg-orange-600/30 border-l-4 border-orange-500' : ''}
@@ -49,6 +55,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePo
       </div>
       {!isEndOfGame && (
           <div className="text-center mt-6">
+            {showReplayButton && (
+                <button
+                    onClick={() => onViewReplay(currentDare.id)}
+                    className="mb-4 py-2 px-4 bg-green-500 hover:bg-green-600 rounded-lg text-white font-semibold transform transition-transform active:scale-95"
+                >
+                    Watch Last Dare's Replay ▶️
+                </button>
+            )}
             {hasSwapCategory && (
                 <button 
                     onClick={() => onUsePowerUp('SWAP_CATEGORY')}
