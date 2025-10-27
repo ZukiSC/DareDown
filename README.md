@@ -26,15 +26,12 @@ Database & Auth: Firebase (Firestore + Auth + Storage)
 Hosting: Vercel (frontend) + Render/Railway (backend)
 
 🏗️ How It Works
-Players join the lobby and choose a category before entering a game room.
+1. Players join the lobby and pick a category before entering a room.
+2. Each room is assigned a **unique question or mini-game** based on the players’ chosen categories.
+3. Players compete in that room-specific challenge.
+4. Losers receive a dare from the same category as the room’s question.
+5. Leaderboards update in real-time.
 
-The room displays all players’ selected categories.
-
-Mini-games and dares are selected based on the mix of chosen categories.
-
-Players compete in short rounds — losers receive a dare from the selected categories.
-
-Leaderboards update in real-time, and the chaos continues!
 
 🔧 Setup Instructions
 Clone the repository:
