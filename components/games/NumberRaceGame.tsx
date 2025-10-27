@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Player, Challenge } from '../../types';
 import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
@@ -17,15 +17,14 @@ const BASE_TIMEOUT = 15;
 const NumberRaceGame: React.FC<NumberRaceGameProps> = ({ onGameEnd, players, currentPlayerId, challenge, extraTime }) => {
   const [currentNumber, setCurrentNumber] = useState(1);
   const [shuffledNumbers, setShuffledNumbers] = useState<number[]>([]);
-  const [gameTimeout, setGameTimeout] = useState(BASE_TIMEOUT);
   const [timeLeft, setTimeLeft] = useState(BASE_TIMEOUT);
   const [isFinished, setIsFinished] = useState(false);
+  const extraTimeApplied = useRef(false);
 
   useEffect(() => {
-      if(extraTime > 0) {
-          const newTimeout = BASE_TIMEOUT + extraTime;
-          setGameTimeout(newTimeout);
+      if(extraTime > 0 && !extraTimeApplied.current) {
           setTimeLeft(prev => prev + extraTime);
+          extraTimeApplied.current = true;
       }
   }, [extraTime]);
 
@@ -68,20 +67,21 @@ const NumberRaceGame: React.FC<NumberRaceGameProps> = ({ onGameEnd, players, cur
   }, [players, currentPlayerId]);
 
   useEffect(() => {
-      if (isFinished) return;
+    if (isFinished) return;
 
-      if (timeLeft <= 0) {
-          playSound('timesUp');
-          onGameEnd(determineLosers(false));
-          setIsFinished(true);
-          return;
-      }
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
 
-      const timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
+    return () => clearInterval(timerId);
+  }, [isFinished]);
 
-      return () => clearInterval(timer);
+  useEffect(() => {
+    if (timeLeft === 0 && !isFinished) {
+      playSound('timesUp');
+      onGameEnd(determineLosers(false));
+      setIsFinished(true);
+    }
   }, [timeLeft, isFinished, onGameEnd, determineLosers]);
 
 
@@ -103,7 +103,7 @@ const NumberRaceGame: React.FC<NumberRaceGameProps> = ({ onGameEnd, players, cur
 
   return (
     <div className="relative w-full h-full">
-      <GameTimer duration={gameTimeout} timeLeft={timeLeft} />
+      <GameTimer duration={BASE_TIMEOUT + extraTime} timeLeft={timeLeft} />
       <h2 className="text-center text-2xl font-bold mb-4">Click the numbers in order: <span className="text-yellow-400">{currentNumber}</span></h2>
       {shuffledNumbers.map((num, index) => (
         <button

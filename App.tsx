@@ -4,7 +4,7 @@ import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
 import DareScreen from './components/DareScreen';
 import Leaderboard from './components/Leaderboard';
-import DareProofScreen from './components/DareProofScreen';
+import LiveDareView from './components/LiveDareView';
 import SuddenDeathScreen from './components/SuddenDeathScreen';
 import CategorySelectionScreen from './components/CategorySelectionScreen';
 import CustomizationScreen from './components/CustomizationScreen';
@@ -27,7 +27,7 @@ const MOCK_PLAYERS: Player[] = [
   },
 ];
 const MAX_ROUNDS = 5;
-type ActiveReaction = { playerId: string; emoji: string };
+type ActiveReaction = { id: string; playerId: string; emoji: string };
 type Notification = { message: string, emoji?: string };
 type LoadingState = { active: boolean; message: string };
 // --- END MOCK DATA ---
@@ -217,22 +217,26 @@ export default function App() {
     }
   }, [players, handleNextRound]);
 
-  const generateAndShowDare = useCallback(async (loser: Player) => {
-    setLoadingState({ active: true, message: 'Generating an EPIC dare with AI...' });
+  const generateAndShowDare = useCallback((loser: Player) => {
+    setLoadingState({ active: true, message: 'Picking a legendary dare...' });
     const roomCategories = [...new Set(players.map(p => p.category).filter(Boolean))] as Category[];
-    const dareText = await generateDare(loser.name, roomCategories);
+    const dareText = generateDare(loser.name, roomCategories);
     const newDare: Dare = {
       id: `d_${Date.now()}`,
       text: dareText,
       assigneeId: loser.id,
       status: 'pending',
     };
-    setCurrentDare(newDare);
-    setLoadingState({ active: false, message: '' });
-    setGameState(GameState.DARE_SCREEN);
-    if (loser.id === currentPlayer.id) {
-        showLocalNotification("It's your turn!", { body: `Your dare is: ${newDare.text}` });
-    }
+    
+    setTimeout(() => {
+        setCurrentDare(newDare);
+        setLoadingState({ active: false, message: '' });
+        setGameState(GameState.DARE_SCREEN);
+        if (loser.id === currentPlayer.id) {
+            showLocalNotification("It's your turn!", { body: `Your dare is: ${newDare.text}` });
+        }
+    }, 1500); // Simulate a short delay for dramatic effect
+
   }, [players, currentPlayer.id]);
   
   const handleSuddenDeathEnd = (loserId: string) => {
@@ -245,14 +249,11 @@ export default function App() {
       }
   };
 
-  const handleProofSubmit = (proofDataUrl: string) => {
-      if (currentDare) {
-          setCurrentDare({ ...currentDare, proof: proofDataUrl });
-          setGameState(GameState.DARE_PROOF_VOTING);
-      }
+  const handleStartLiveDare = () => {
+      setGameState(GameState.DARE_LIVE_STREAM);
   };
 
-  const handleProofVote = (passed: boolean) => {
+  const handleLiveDareVote = (passed: boolean) => {
       if (roundLoser && currentDare) {
           const newStatus = passed ? 'completed' : 'failed';
           setCurrentDare({ ...currentDare, status: newStatus });
@@ -312,15 +313,20 @@ export default function App() {
   };
 
   const handleEmojiReaction = (emoji: string) => {
-    const newReaction = { playerId: currentPlayer.id, emoji };
+    const newReaction = { id: `reaction_${Date.now()}`, playerId: currentPlayer.id, emoji };
     setActiveReactions(prev => [...prev, newReaction]);
+    
+    // Simulate a bot reaction
     setTimeout(() => {
         const otherPlayer = players.find(p => p.id !== currentPlayer.id);
         if (otherPlayer) {
-            setActiveReactions(prev => [...prev, { playerId: otherPlayer.id, emoji: '😂' }]);
+            setActiveReactions(prev => [...prev, { id: `reaction_${Date.now()}_bot`, playerId: otherPlayer.id, emoji: '😂' }]);
         }
     }, 800);
-    setTimeout(() => setActiveReactions(prev => prev.filter(r => r !== newReaction)), 3000);
+
+    setTimeout(() => {
+        setActiveReactions(prev => prev.filter(r => r.id !== newReaction.id));
+    }, 3000);
   };
 
   const handleSendMessage = (text: string) => {
@@ -385,9 +391,9 @@ export default function App() {
               case GameState.SUDDEN_DEATH:
                 return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} />;
               case GameState.DARE_SCREEN:
-                return <DareScreen loser={roundLoser} dare={currentDare} players={players} onProofSubmit={handleProofSubmit} reactions={activeReactions} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
-              case GameState.DARE_PROOF_VOTING:
-                return <DareProofScreen dare={currentDare} loser={roundLoser} onVote={handleProofVote} currentPlayerId={currentPlayer.id} />;
+                return <DareScreen loser={roundLoser} dare={currentDare} players={players} onStartLiveDare={handleStartLiveDare} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
+              case GameState.DARE_LIVE_STREAM:
+                 return <LiveDareView dare={currentDare} loser={roundLoser} onVote={handleLiveDareVote} currentPlayer={currentPlayer} reactions={activeReactions} />;
               case GameState.LEADERBOARD:
                 return <Leaderboard players={players} isEndOfGame={currentRound >= MAX_ROUNDS} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer}/>;
               default:
@@ -398,7 +404,7 @@ export default function App() {
     );
   };
 
-  const showEmojiPanel = [GameState.MINIGAME, GameState.DARE_SCREEN, GameState.LOBBY].includes(gameState);
+  const showEmojiPanel = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY].includes(gameState);
   const showPowerUpPanel = [GameState.MINIGAME, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
   const showChatPanel = ![GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION].includes(gameState);
 

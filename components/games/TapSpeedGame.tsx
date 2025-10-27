@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Player, Challenge } from '../../types';
 import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
@@ -17,10 +17,13 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
   const [taps, setTaps] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [gameStarted, setGameStarted] = useState(true);
+  const [isFinished, setIsFinished] = useState(false);
+  const extraTimeApplied = useRef(false);
 
   useEffect(() => {
-    if (extraTime > 0) {
+    if (extraTime > 0 && !extraTimeApplied.current) {
       setTimeLeft(prev => prev + extraTime);
+      extraTimeApplied.current = true;
     }
   }, [extraTime]);
 
@@ -54,20 +57,22 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
   }, [players, currentPlayerId]);
 
   useEffect(() => {
-    if (!gameStarted) return;
+    if (!gameStarted || isFinished) return;
 
-    if (timeLeft <= 0) {
-      playSound('timesUp');
-      onGameEnd(determineLosers(taps));
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [timeLeft, gameStarted, onGameEnd, determineLosers, taps]);
+    return () => clearInterval(timerId);
+  }, [gameStarted, isFinished]);
+  
+  useEffect(() => {
+    if (timeLeft === 0 && !isFinished) {
+      setIsFinished(true);
+      playSound('timesUp');
+      onGameEnd(determineLosers(taps));
+    }
+  }, [timeLeft, isFinished, onGameEnd, determineLosers, taps, gameStarted]);
 
 
   return (

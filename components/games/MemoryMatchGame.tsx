@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Player, Challenge } from '../../types';
 import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
@@ -20,6 +20,7 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
   const [moves, setMoves] = useState(0);
   const [timeLeft, setTimeLeft] = useState(BASE_TIMEOUT);
   const [isFinished, setIsFinished] = useState(false);
+  const extraTimeApplied = useRef(false);
   
   const pairCount = challenge.content.pairCount || 6;
 
@@ -32,8 +33,9 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
   }, [pairCount]);
 
   useEffect(() => {
-    if (extraTime > 0) {
+    if (extraTime > 0 && !extraTimeApplied.current) {
       setTimeLeft(prev => prev + extraTime);
+      extraTimeApplied.current = true;
     }
   }, [extraTime]);
   
@@ -55,14 +57,20 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
 
   useEffect(() => {
     if (isFinished) return;
-    if (timeLeft <= 0) {
+
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [isFinished]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && !isFinished) {
       playSound('timesUp');
       onGameEnd(determineLosers(moves + 10)); // Penalty for not finishing
       setIsFinished(true);
-      return;
     }
-    const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    return () => clearInterval(timer);
   }, [timeLeft, isFinished, onGameEnd, determineLosers, moves]);
 
 

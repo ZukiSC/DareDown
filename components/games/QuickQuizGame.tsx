@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Player, Challenge, QuizQuestion } from '../../types';
 import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
@@ -18,10 +18,12 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
+  const extraTimeApplied = useRef(false);
 
   useEffect(() => {
-    if (extraTime > 0) {
+    if (extraTime > 0 && !extraTimeApplied.current) {
       setTimeLeft(prev => prev + extraTime);
+      extraTimeApplied.current = true;
     }
   }, [extraTime]);
 
@@ -47,19 +49,19 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
   useEffect(() => {
     if (isAnswered) return;
 
-    if (timeLeft <= 0) {
-      playSound('timesUp');
-      // If time runs out, the current player is a loser, along with any bots who "didn't answer"
-      onGameEnd(determineLosers(false));
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [timeLeft, onGameEnd, determineLosers, isAnswered]);
+    return () => clearInterval(timerId);
+  }, [isAnswered]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && !isAnswered) {
+      playSound('timesUp');
+      onGameEnd(determineLosers(false));
+    }
+  }, [timeLeft, isAnswered, onGameEnd, determineLosers]);
 
   const handleAnswerClick = (option: string) => {
     if (isAnswered) return;
