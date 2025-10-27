@@ -6,9 +6,10 @@ interface PlayerAvatarProps {
   player: Player;
   isCurrentPlayer: boolean;
   reaction?: string | null;
+  isWinner?: boolean;
 }
 
-const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction }) => {
+const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner }) => {
   const avatar = useMemo(() => getAvatarById(player.customization.avatarId), [player.customization.avatarId]);
   const color = useMemo(() => getColorById(player.customization.colorId), [player.customization.colorId]);
   const badge = useMemo(() => player.customization.badgeId ? getBadgeById(player.customization.badgeId) : null, [player.customization.badgeId]);
@@ -19,7 +20,8 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
 
   return (
     <div className={`relative flex flex-col items-center p-2 rounded-lg transition-all duration-300 w-full sm:w-28 text-center
-      ${isCurrentPlayer ? 'bg-purple-600/70' : 'bg-gray-700/50'}`}>
+      ${isCurrentPlayer ? 'bg-purple-600/70' : 'bg-gray-700/50'}
+      ${isWinner ? 'shadow-lg shadow-yellow-400/50' : ''}`}>
        {reaction && (
         <div 
           key={Date.now()} // Force re-render to restart animation
@@ -34,8 +36,11 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
         {badge && (
           <span className="absolute -bottom-2 -right-2 text-xl sm:text-2xl bg-gray-800 rounded-full p-1" title={badge.name}>{badge.emoji}</span>
         )}
-        {player.isHost && (
+        {player.isHost && !isWinner && (
           <span className="absolute -top-2 -right-2 text-xl sm:text-2xl" title="Host">👑</span>
+        )}
+         {isWinner && (
+          <span className="absolute -top-3 -right-3 text-3xl sm:text-4xl" title="Winner">🏆</span>
         )}
       </div>
       <p className="font-semibold truncate w-full text-sm sm:text-base">{player.name}</p>
@@ -65,17 +70,6 @@ animationStyle.innerHTML = `
   }
   .animate-ping-once {
     animation: ping-once 1.5s cubic-bezier(0, 0, 0.2, 1) forwards;
-  }
-   @keyframes fade-in {
-    0% {
-      opacity: 0;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
-  .animate-fade-in {
-    animation: fade-in 0.5s ease-out forwards;
   }
 `;
 document.head.appendChild(animationStyle);

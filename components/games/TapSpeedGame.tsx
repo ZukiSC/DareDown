@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface TapSpeedGameProps {
-  onGameEnd: (loserId: string) => void;
+  onGameEnd: (loserIds: string[]) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -16,7 +16,7 @@ const GAME_DURATION = 5;
 const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, currentPlayerId, challenge, extraTime }) => {
   const [taps, setTaps] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
-  const [gameStarted, setGameStarted] = useState(true); // Auto-start after briefing
+  const [gameStarted, setGameStarted] = useState(true);
 
   useEffect(() => {
     if (extraTime > 0) {
@@ -31,20 +31,26 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
     }
   };
   
-  const determineLoser = useCallback((playerScore: number) => {
-    let loserId = currentPlayerId;
-    let minScore = playerScore;
-
-    players.forEach(player => {
-      if (player.id !== currentPlayerId) {
-        const botScore = Math.floor(Math.random() * 25) + 5;
-        if (botScore < minScore) {
-          minScore = botScore;
-          loserId = player.id;
+  const determineLosers = useCallback((playerScore: number) => {
+    // Simulate scores for bot players
+    const scores = players.map(p => {
+        if (p.id === currentPlayerId) {
+            return { id: p.id, score: playerScore };
         }
-      }
+        // Bots score between 5 and 25
+        return { id: p.id, score: Math.floor(Math.random() * 21) + 5 };
     });
-    return loserId;
+
+    if (scores.length === 0) return [];
+    
+    // Find the minimum score
+    const minScore = Math.min(...scores.map(s => s.score));
+    
+    // Find all players with that minimum score
+    const losers = scores.filter(s => s.score === minScore);
+
+    return losers.map(l => l.id);
+
   }, [players, currentPlayerId]);
 
   useEffect(() => {
@@ -52,7 +58,7 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
 
     if (timeLeft <= 0) {
       playSound('timesUp');
-      onGameEnd(determineLoser(taps));
+      onGameEnd(determineLosers(taps));
       return;
     }
 
@@ -61,7 +67,7 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, gameStarted, onGameEnd, determineLoser, taps]);
+  }, [timeLeft, gameStarted, onGameEnd, determineLosers, taps]);
 
 
   return (

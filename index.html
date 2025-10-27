@@ -12,6 +12,24 @@
       body {
         font-family: 'Poppins', sans-serif;
       }
+       @keyframes fade-in {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+      }
+      @keyframes slide-in {
+        0% { transform: translateX(20px); opacity: 0; }
+        100% { transform: translateX(0); opacity: 1; }
+      }
+      .animate-slide-in {
+        animation: slide-in 0.4s ease-out forwards;
+      }
+       @keyframes confetti-fall {
+        0% { transform: translateY(-100%) rotateZ(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotateZ(720deg); opacity: 0; }
+      }
     </style>
   <script type="importmap">
 {

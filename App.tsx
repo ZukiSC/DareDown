@@ -4,8 +4,8 @@ import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
 import DareScreen from './components/DareScreen';
 import Leaderboard from './components/Leaderboard';
-import DareSubmissionScreen from './components/DareSubmissionScreen';
-import DareVotingScreen from './components/DareVotingScreen';
+import DareProofScreen from './components/DareProofScreen';
+import SuddenDeathScreen from './components/SuddenDeathScreen';
 import CategorySelectionScreen from './components/CategorySelectionScreen';
 import CustomizationScreen from './components/CustomizationScreen';
 import EmojiReactionPanel from './components/EmojiReactionPanel';
@@ -16,6 +16,7 @@ import { getChallengeForRoom } from './services/challengeService';
 import { getBadgeById } from './services/customizationService';
 import { getRandomPowerUp, getPowerUpById } from './services/powerUpService';
 import { requestNotificationPermission, showLocalNotification } from './services/notificationService';
+import { generateDare } from './services/geminiService';
 
 // --- MOCK DATA & SIMULATION ---
 const MOCK_PLAYERS: Player[] = [
@@ -28,6 +29,7 @@ const MOCK_PLAYERS: Player[] = [
 const MAX_ROUNDS = 5;
 type ActiveReaction = { playerId: string; emoji: string };
 type Notification = { message: string, emoji?: string };
+type LoadingState = { active: boolean; message: string };
 // --- END MOCK DATA ---
 
 export default function App() {
@@ -37,9 +39,9 @@ export default function App() {
   const [currentRound, setCurrentRound] = useState(0);
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
   const [roundLoser, setRoundLoser] = useState<Player | null>(null);
-  const [submittedDares, setSubmittedDares] = useState<Dare[]>([]);
+  const [suddenDeathPlayers, setSuddenDeathPlayers] = useState<Player[]>([]);
   const [currentDare, setCurrentDare] = useState<Dare | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>({ active: false, message: '' });
   const [isMuted, setIsMuted] = useState(false);
   const [activeReactions, setActiveReactions] = useState<ActiveReaction[]>([]);
   const [newUnlock, setNewUnlock] = useState<Badge | PowerUp | null>(null);
@@ -160,6 +162,7 @@ export default function App() {
         setNewUnlock(badge);
         setPlayers(prev => prev.map(p => p.id === winner.id ? { ...p, unlocks: [...p.unlocks, 'badge_winner'] } : p));
     }
+    playSound('winGame');
     setGameState(GameState.LEADERBOARD);
   }, [players]);
 
@@ -190,79 +193,90 @@ export default function App() {
     generateNextChallenge();
     setRoundLoser(null);
     setCurrentDare(null);
-    setSubmittedDares([]);
+    setSuddenDeathPlayers([]);
     setGameState(GameState.MINIGAME);
   }, [currentRound, generateNextChallenge, handleEndOfGame, players, roundLoser, currentPlayer.id, showNotification]);
 
-  const handleMiniGameEnd = useCallback((loserId: string) => {
-    const loser = players.find(p => p.id === loserId);
-    if (loser) {
-      setRoundLoser(loser);
-      setSubmittedDares([]);
-      setGameState(GameState.DARE_SUBMISSION);
-    } else {
+   const handleMiniGameEnd = useCallback((loserIds: string[]) => {
+    if (loserIds.length === 0) {
       handleNextRound();
+      return;
+    }
+    if (loserIds.length > 1) {
+      const tiedPlayers = players.filter(p => loserIds.includes(p.id));
+      setSuddenDeathPlayers(tiedPlayers);
+      setGameState(GameState.SUDDEN_DEATH);
+    } else {
+      const loser = players.find(p => p.id === loserIds[0]);
+      if (loser) {
+        setRoundLoser(loser);
+        generateAndShowDare(loser);
+      } else {
+        handleNextRound();
+      }
     }
   }, [players, handleNextRound]);
 
-  const handleDareSubmit = useCallback((dareText: string) => {
-    if (!roundLoser) return;
-    const newDare: Dare = { id: `d_${Date.now()}`, text: dareText, assigneeId: roundLoser.id, submitterId: currentPlayer.id, status: 'pending', votes: [] };
-    setSubmittedDares(prev => [...prev, newDare]);
-    setTimeout(() => {
-        const otherPlayers = players.filter(p => p.id !== currentPlayer.id && p.id !== roundLoser.id);
-        const mockDares: Dare[] = otherPlayers.slice(0, 2).map((p, i) => ({ id: `d_mock_${Date.now() + i}`, text: i === 0 ? 'Act like a chicken.' : 'Sing everything.', assigneeId: roundLoser.id, submitterId: p.id, status: 'pending', votes: [] }));
-        setSubmittedDares(prev => [...prev, ...mockDares]);
-        setGameState(GameState.DARE_VOTING);
-    }, 2000);
-  }, [roundLoser, currentPlayer, players]);
-  
-  const handleDareVote = useCallback((dareId: string) => {
-    const playerVotedDares = submittedDares.map(d => d.id === dareId ? { ...d, votes: [...d.votes, currentPlayer.id] } : d);
-    setSubmittedDares(playerVotedDares);
-    setIsLoading(true);
-    setTimeout(() => {
-        let finalDares = JSON.parse(JSON.stringify(playerVotedDares));
-        const otherVoters = players.filter(p => p.id !== currentPlayer.id);
-        otherVoters.forEach(voter => {
-            if (finalDares.length > 0) {
-                const randomDareIndex = Math.floor(Math.random() * finalDares.length);
-                finalDares[randomDareIndex].votes.push(voter.id);
-            }
-        });
-        const winningDare = [...finalDares].sort((a, b) => b.votes.length - a.votes.length)[0];
-        if (winningDare) {
-            setCurrentDare(winningDare);
-            setPlayers(prev => prev.map(p => p.id === winningDare.submitterId ? { ...p, score: p.score + 5 } : p));
-            setGameState(GameState.DARE_SCREEN);
-            if (winningDare.assigneeId === currentPlayer.id) {
-                showLocalNotification("It's your turn!", { body: `Your dare is: ${winningDare.text}` });
-            }
-        } else {
-            handleNextRound();
-        }
-        setIsLoading(false);
-    }, 2500);
-  }, [submittedDares, players, currentPlayer.id, handleNextRound]);
-
-  const handleDareComplete = useCallback((proof: string) => {
-    playSound('dareComplete');
-    if (roundLoser) {
-      showLocalNotification("Dare Completed!", { body: `${roundLoser.name} completed their dare.` });
-      const dareCompleter = players.find(p => p.id === roundLoser.id);
-      if (dareCompleter && !dareCompleter.unlocks.includes('badge_dare_survivor')) {
-          const badge = getBadgeById('badge_dare_survivor');
-          setNewUnlock(badge);
-          setPlayers(prev => prev.map(p => p.id === roundLoser.id ? { ...p, unlocks: [...p.unlocks, 'badge_dare_survivor'] } : p));
-      }
-      setPlayers(prevPlayers => prevPlayers.map(p => p.id !== roundLoser.id ? { ...p, score: p.score + 10 } : p));
+  const generateAndShowDare = useCallback(async (loser: Player) => {
+    setLoadingState({ active: true, message: 'Generating an EPIC dare with AI...' });
+    const roomCategories = [...new Set(players.map(p => p.category).filter(Boolean))] as Category[];
+    const dareText = await generateDare(loser.name, roomCategories);
+    const newDare: Dare = {
+      id: `d_${Date.now()}`,
+      text: dareText,
+      assigneeId: loser.id,
+      status: 'pending',
+    };
+    setCurrentDare(newDare);
+    setLoadingState({ active: false, message: '' });
+    setGameState(GameState.DARE_SCREEN);
+    if (loser.id === currentPlayer.id) {
+        showLocalNotification("It's your turn!", { body: `Your dare is: ${newDare.text}` });
     }
-    setGameState(GameState.LEADERBOARD);
-    setTimeout(() => handleNextRound(), 5000);
-  }, [roundLoser, handleNextRound, players]);
+  }, [players, currentPlayer.id]);
+  
+  const handleSuddenDeathEnd = (loserId: string) => {
+      const loser = players.find(p => p.id === loserId);
+      if (loser) {
+          setRoundLoser(loser);
+          generateAndShowDare(loser);
+      } else {
+          handleNextRound();
+      }
+  };
+
+  const handleProofSubmit = (proofDataUrl: string) => {
+      if (currentDare) {
+          setCurrentDare({ ...currentDare, proof: proofDataUrl });
+          setGameState(GameState.DARE_PROOF_VOTING);
+      }
+  };
+
+  const handleProofVote = (passed: boolean) => {
+      if (roundLoser && currentDare) {
+          const newStatus = passed ? 'completed' : 'failed';
+          setCurrentDare({ ...currentDare, status: newStatus });
+          playSound(passed ? 'dareComplete' : 'incorrect');
+
+          if (passed) {
+              showLocalNotification("Dare Completed!", { body: `${roundLoser.name} completed their dare.` });
+              const dareCompleter = players.find(p => p.id === roundLoser.id);
+              if (dareCompleter && !dareCompleter.unlocks.includes('badge_dare_survivor')) {
+                  const badge = getBadgeById('badge_dare_survivor');
+                  setNewUnlock(badge);
+                  setPlayers(prev => prev.map(p => p.id === roundLoser.id ? { ...p, unlocks: [...p.unlocks, 'badge_dare_survivor'] } : p));
+              }
+              setPlayers(prevPlayers => prevPlayers.map(p => p.id !== roundLoser.id ? { ...p, score: p.score + 10 } : p));
+          } else {
+              // Penalty for failing
+              setPlayers(prevPlayers => prevPlayers.map(p => p.id === roundLoser.id ? { ...p, score: p.score - 5 } : p));
+          }
+      }
+      setGameState(GameState.LEADERBOARD);
+      setTimeout(() => handleNextRound(), 5000);
+  };
 
   const handleUsePowerUp = (powerUpId: PowerUpType) => {
-    // Remove power-up from player
     const playerWithPowerUp = players.find(p => p.id === currentPlayer.id);
     if (!playerWithPowerUp || !playerWithPowerUp.powerUps.includes(powerUpId)) return;
 
@@ -277,14 +291,13 @@ export default function App() {
     const powerUp = getPowerUpById(powerUpId);
     showNotification(`${powerUp?.name} used!`, powerUp?.emoji);
 
-    // Execute power-up effect
     switch (powerUpId) {
         case 'SKIP_DARE':
             setGameState(GameState.LEADERBOARD);
             setTimeout(() => handleNextRound(), 4000);
             break;
         case 'EXTRA_TIME':
-            setExtraTime(5); // Add 5 seconds
+            setExtraTime(5);
             break;
         case 'SWAP_CATEGORY':
             setIsSwappingCategory(true);
@@ -301,7 +314,6 @@ export default function App() {
   const handleEmojiReaction = (emoji: string) => {
     const newReaction = { playerId: currentPlayer.id, emoji };
     setActiveReactions(prev => [...prev, newReaction]);
-    // Simulate other players reacting
     setTimeout(() => {
         const otherPlayer = players.find(p => p.id !== currentPlayer.id);
         if (otherPlayer) {
@@ -332,13 +344,9 @@ export default function App() {
             const newReactions = { ...msg.reactions };
             const existingReactors = newReactions[emoji] || [];
             if (existingReactors.includes(currentPlayer.id)) {
-              // User is removing their reaction
               newReactions[emoji] = existingReactors.filter(id => id !== currentPlayer.id);
-              if (newReactions[emoji].length === 0) {
-                delete newReactions[emoji];
-              }
+              if (newReactions[emoji].length === 0) delete newReactions[emoji];
             } else {
-              // User is adding a reaction
               newReactions[emoji] = [...existingReactors, currentPlayer.id];
             }
             return { ...msg, reactions: newReactions };
@@ -359,26 +367,35 @@ export default function App() {
         )
     }
     
-    switch (gameState) {
-      case GameState.CATEGORY_SELECTION:
-        return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
-      case GameState.CUSTOMIZATION:
-        return <CustomizationScreen player={currentPlayer} onSave={handleCustomizationSave} />;
-      case GameState.LOBBY:
-        return <Lobby players={players} currentPlayer={currentPlayer} onStartGame={handleStartGame} reactions={activeReactions} notificationPermission={notificationPermission} onRequestNotifications={handleRequestNotifications} />;
-      case GameState.MINIGAME:
-        return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} reactions={activeReactions} extraTime={extraTime} />;
-      case GameState.DARE_SUBMISSION:
-        return <DareSubmissionScreen loser={roundLoser} currentPlayer={currentPlayer} players={players} onSubmit={handleDareSubmit} />;
-      case GameState.DARE_VOTING:
-        return <DareVotingScreen dares={submittedDares} players={players} onVote={handleDareVote} currentPlayerId={currentPlayer.id} />;
-      case GameState.DARE_SCREEN:
-        return <DareScreen loser={roundLoser} dare={currentDare} players={players} onComplete={handleDareComplete} reactions={activeReactions} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
-      case GameState.LEADERBOARD:
-        return <Leaderboard players={players} isEndOfGame={currentRound >= MAX_ROUNDS} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer}/>;
-      default:
-        return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
-    }
+    // Using a key on the container div forces a remount on gameState change, which allows for clean animations.
+    const contentKey = `${gameState}-${currentRound}`;
+
+    return (
+        <div key={contentKey} className="w-full h-full animate-slide-in">
+        {(() => {
+            switch (gameState) {
+              case GameState.CATEGORY_SELECTION:
+                return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
+              case GameState.CUSTOMIZATION:
+                return <CustomizationScreen player={currentPlayer} onSave={handleCustomizationSave} />;
+              case GameState.LOBBY:
+                return <Lobby players={players} currentPlayer={currentPlayer} onStartGame={handleStartGame} reactions={activeReactions} notificationPermission={notificationPermission} onRequestNotifications={handleRequestNotifications} />;
+              case GameState.MINIGAME:
+                return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} reactions={activeReactions} extraTime={extraTime} />;
+              case GameState.SUDDEN_DEATH:
+                return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} />;
+              case GameState.DARE_SCREEN:
+                return <DareScreen loser={roundLoser} dare={currentDare} players={players} onProofSubmit={handleProofSubmit} reactions={activeReactions} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
+              case GameState.DARE_PROOF_VOTING:
+                return <DareProofScreen dare={currentDare} loser={roundLoser} onVote={handleProofVote} currentPlayerId={currentPlayer.id} />;
+              case GameState.LEADERBOARD:
+                return <Leaderboard players={players} isEndOfGame={currentRound >= MAX_ROUNDS} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer}/>;
+              default:
+                return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
+            }
+        })()}
+        </div>
+    );
   };
 
   const showEmojiPanel = [GameState.MINIGAME, GameState.DARE_SCREEN, GameState.LOBBY].includes(gameState);
@@ -393,11 +410,11 @@ export default function App() {
       </button>
       
       <div className="relative w-full max-w-7xl flex flex-col lg:flex-row gap-4 items-start justify-center">
-        <main className="relative w-full lg:max-w-4xl h-[90vh] lg:h-[85vh] bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30">
-          {isLoading ? (
+        <main className="relative w-full lg:max-w-4xl h-[90vh] lg:h-[85vh] bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30 overflow-hidden">
+          {loadingState.active ? (
             <div className="flex flex-col items-center justify-center h-full">
               <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
-              <p className="mt-4 text-xl text-gray-300">Waiting for other players...</p>
+              <p className="mt-4 text-xl text-gray-300">{loadingState.message}</p>
             </div>
           ) : (
             renderContent()

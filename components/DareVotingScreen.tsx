@@ -53,7 +53,8 @@ const DareVotingScreen: React.FC<DareVotingScreenProps> = ({ dares, players, onV
                         className="w-full text-left p-4 bg-gray-700/80 rounded-lg border-2 border-transparent hover:border-purple-500 transition-all duration-300 disabled:opacity-50 disabled:hover:border-transparent"
                     >
                         <p className="text-xl font-semibold text-white">{dare.text}</p>
-                        <p className="text-sm text-gray-400">from: {getSubmitterName(dare.submitterId)}</p>
+                        {/* Fix: Check if submitterId exists on the dare object before attempting to render the submitter's name. */}
+                        {dare.submitterId && <p className="text-sm text-gray-400">from: {getSubmitterName(dare.submitterId)}</p>}
                     </button>
                 ))}
             </div>

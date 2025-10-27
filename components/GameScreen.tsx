@@ -3,13 +3,14 @@ import { Challenge, Player, QuizQuestion } from '../types';
 import QuickQuizGame from './games/QuickQuizGame';
 import TapSpeedGame from './games/TapSpeedGame';
 import NumberRaceGame from './games/NumberRaceGame';
+import MemoryMatchGame from './games/MemoryMatchGame';
 import PlayerAvatar from './PlayerAvatar';
 
 interface GameScreenProps {
   challenge: Challenge | null;
   players: Player[];
   currentPlayerId: string;
-  onMiniGameEnd: (loserId: string) => void;
+  onMiniGameEnd: (loserIds: string[]) => void;
   round: number;
   reactions: { playerId: string, emoji: string }[];
   extraTime: number;
@@ -19,12 +20,14 @@ const gameComponents = {
   QUICK_QUIZ: QuickQuizGame,
   TAP_SPEED: TapSpeedGame,
   NUMBER_RACE: NumberRaceGame,
+  MEMORY_MATCH: MemoryMatchGame,
 };
 
 const gameTitles = {
     QUICK_QUIZ: 'Quick Quiz!',
     TAP_SPEED: 'Tap Speed Test!',
     NUMBER_RACE: 'Number Race!',
+    MEMORY_MATCH: 'Memory Match!',
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlayerId, onMiniGameEnd, round, reactions, extraTime }) => {
@@ -67,6 +70,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlay
             )}
              {challenge.type === 'NUMBER_RACE' && (
                 <p className="text-2xl md:text-4xl font-semibold">Click the numbers 1 to 10 in order!</p>
+            )}
+            {challenge.type === 'MEMORY_MATCH' && (
+                <p className="text-2xl md:text-4xl font-semibold">Find all the matching pairs!</p>
             )}
             <div className="mt-8 text-6xl font-bold animate-ping">{countdown}</div>
         </div>

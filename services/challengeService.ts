@@ -18,10 +18,12 @@ const CHALLENGE_DATABASE: Challenge[] = [
     { id: 'g1', type: 'QUICK_QUIZ', category: 'General', content: { question: "What is 2 + 2 * 2?", options: ["8", "6", "4", "2"], correctAnswer: "6" } as QuizQuestion },
     { id: 'g2', type: 'TAP_SPEED', category: 'General', content: {} },
     { id: 'g3', type: 'NUMBER_RACE', category: 'General', content: {} },
+    { id: 'g4', type: 'MEMORY_MATCH', category: 'General', content: { pairCount: 6 } }, // 6 pairs = 12 cards
     
     // Speed/Reflex
     { id: 's1', type: 'TAP_SPEED', category: 'Speed/Reflex', content: {} },
     { id: 's2', type: 'NUMBER_RACE', category: 'Speed/Reflex', content: {} },
+    { id: 's3', type: 'MEMORY_MATCH', category: 'Speed/Reflex', content: { pairCount: 8 } }, // 8 pairs = 16 cards
 ];
 
 

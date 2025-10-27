@@ -22,11 +22,11 @@ export interface Player {
 export interface Dare {
   id: string;
   text: string;
-  assigneeId: string; // The one who does the dare
-  submitterId: string; // The one who suggested it
-  status: 'pending' | 'completed';
-  proof?: string; // URL to image or text proof
-  votes: string[]; // Array of player IDs who voted for it
+  assigneeId: string;
+  status: 'pending' | 'completed' | 'failed';
+  proof?: string; // base64 data URL for image proof
+  // Fix: Added optional submitterId to support both AI-generated and player-submitted dares.
+  submitterId?: string;
 }
 
 export enum GameState {
@@ -34,13 +34,13 @@ export enum GameState {
   CUSTOMIZATION = 'CUSTOMIZATION',
   LOBBY = 'LOBBY',
   MINIGAME = 'MINIGAME',
-  DARE_SUBMISSION = 'DARE_SUBMISSION',
-  DARE_VOTING = 'DARE_VOTING',
+  SUDDEN_DEATH = 'SUDDEN_DEATH',
   DARE_SCREEN = 'DARE_SCREEN',
+  DARE_PROOF_VOTING = 'DARE_PROOF_VOTING',
   LEADERBOARD = 'LEADERBOARD',
 }
 
-export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE';
+export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE' | 'MEMORY_MATCH';
 
 export interface QuizQuestion {
   question: string;

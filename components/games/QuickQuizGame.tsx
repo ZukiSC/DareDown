@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface QuickQuizGameProps {
-  onGameEnd: (loserId: string) => void;
+  onGameEnd: (loserIds: string[]) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -25,12 +25,23 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
     }
   }, [extraTime]);
 
-  const determineLoser = useCallback(() => {
-    const otherPlayers = players.filter(p => p.id !== currentPlayerId);
-    if (otherPlayers.length > 0) {
-      return otherPlayers[Math.floor(Math.random() * otherPlayers.length)].id;
+  const determineLosers = useCallback((isPlayerCorrect?: boolean) => {
+    // Simulate other players' answers
+    const playerResults = players.map(player => {
+        if (player.id === currentPlayerId) {
+            return { id: player.id, correct: isPlayerCorrect === true };
+        }
+        // Bots have a 75% chance of getting it right
+        return { id: player.id, correct: Math.random() < 0.75 };
+    });
+
+    const losers = playerResults.filter(p => !p.correct);
+    if (losers.length > 0) {
+        return losers.map(l => l.id);
     }
-    return players[0].id;
+    // If everyone is correct, pick one random "loser" to keep game moving
+    const randomLoser = players[Math.floor(Math.random() * players.length)];
+    return [randomLoser.id];
   }, [players, currentPlayerId]);
 
   useEffect(() => {
@@ -38,7 +49,8 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
 
     if (timeLeft <= 0) {
       playSound('timesUp');
-      onGameEnd(determineLoser());
+      // If time runs out, the current player is a loser, along with any bots who "didn't answer"
+      onGameEnd(determineLosers(false));
       return;
     }
 
@@ -47,21 +59,21 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, onGameEnd, determineLoser, isAnswered]);
+  }, [timeLeft, onGameEnd, determineLosers, isAnswered]);
 
   const handleAnswerClick = (option: string) => {
     if (isAnswered) return;
     setIsAnswered(true);
     setSelectedAnswer(option);
+    const isCorrect = option === question?.correctAnswer;
 
     setTimeout(() => {
-      if (option === question?.correctAnswer) {
+      if (isCorrect) {
         playSound('correct');
-        onGameEnd(determineLoser());
       } else {
         playSound('incorrect');
-        onGameEnd(currentPlayerId);
       }
+      onGameEnd(determineLosers(isCorrect));
     }, 1500);
   };
 
@@ -99,8 +111,5 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
     </div>
   );
 };
-
-// Fix: Removed local GameTimer component declaration which conflicted with the imported component.
-// The GameTimer component is defined in its own file (`components/games/GameTimer.tsx`) and should be imported from there.
 
 export default QuickQuizGame;

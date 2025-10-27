@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Player, Category } from '../types';
-import { getDareSuggestions } from '../services/dareSuggestionService';
+import React, { useState } from 'react';
+import { Player } from '../types';
 
 interface DareSubmissionScreenProps {
   loser: Player | null;
@@ -13,15 +12,7 @@ interface DareSubmissionScreenProps {
 const DareSubmissionScreen: React.FC<DareSubmissionScreenProps> = ({ loser, currentPlayer, players, onSubmit }) => {
   const [dareText, setDareText] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const isLoser = currentPlayer.id === loser?.id;
-
-  useEffect(() => {
-    if (loser && !isLoser) {
-      const roomCategories = [...new Set(players.map(p => p.category).filter(Boolean))] as Category[];
-      setSuggestions(getDareSuggestions(loser.name, roomCategories));
-    }
-  }, [loser, isLoser, players]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +20,6 @@ const DareSubmissionScreen: React.FC<DareSubmissionScreenProps> = ({ loser, curr
       onSubmit(dareText.trim());
       setIsSubmitted(true);
     }
-  };
-  
-  const handleSuggestionClick = (suggestion: string) => {
-    setDareText(suggestion);
   };
 
   if (isLoser) {
@@ -78,22 +65,6 @@ const DareSubmissionScreen: React.FC<DareSubmissionScreenProps> = ({ loser, curr
         </button>
       </form>
       
-      {suggestions.length > 0 && (
-        <div className="mt-6 w-full max-w-md">
-            <p className="text-gray-400 mb-2">Need an idea?</p>
-            <div className="flex flex-col space-y-2">
-                {suggestions.map((suggestion, index) => (
-                    <button
-                        key={index}
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className="w-full text-left p-2 text-sm bg-gray-700/60 rounded-md hover:bg-gray-700 transition-colors"
-                    >
-                       💡 {suggestion}
-                    </button>
-                ))}
-            </div>
-        </div>
-      )}
     </div>
   );
 };
