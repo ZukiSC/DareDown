@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Player, Dare } from '../types';
 
@@ -6,10 +7,9 @@ interface DareVotingScreenProps {
   dares: Dare[];
   players: Player[];
   onVote: (dareId: string) => void;
-  currentPlayerId: string;
 }
 
-const DareVotingScreen: React.FC<DareVotingScreenProps> = ({ dares, players, onVote, currentPlayerId }) => {
+const DareVotingScreen: React.FC<DareVotingScreenProps> = ({ dares, players, onVote }) => {
     const [votedId, setVotedId] = useState<string | null>(null);
 
     const handleVote = (dareId: string) => {

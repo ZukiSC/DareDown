@@ -61,6 +61,7 @@ export interface Dare {
   proof?: string; 
   submitterId?: string;
   replayUrl?: string;
+  votes?: number;
 }
 
 export enum GameState {
@@ -70,9 +71,10 @@ export enum GameState {
   LOBBY = 'LOBBY',
   MINIGAME = 'MINIGAME',
   SUDDEN_DEATH = 'SUDDEN_DEATH',
+  DARE_SUBMISSION = 'DARE_SUBMISSION',
+  DARE_VOTING = 'DARE_VOTING',
   DARE_SCREEN = 'DARE_SCREEN',
   DARE_LIVE_STREAM = 'DARE_LIVE_STREAM',
-  DARE_PROOF_VOTING = 'DARE_PROOF_VOTING',
   LEADERBOARD = 'LEADERBOARD',
 }
 

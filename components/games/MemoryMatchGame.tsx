@@ -129,13 +129,4 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
   );
 };
 
-// Add some CSS for the card flip effect
-const style = document.createElement('style');
-style.innerHTML = `
-.transform-style-3d { transform-style: preserve-3d; }
-.rotate-y-180 { transform: rotateY(180deg); }
-.backface-hidden { backface-visibility: hidden; }
-`;
-document.head.appendChild(style);
-
 export default MemoryMatchGame;

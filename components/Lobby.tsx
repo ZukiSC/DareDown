@@ -16,53 +16,45 @@ interface LobbyProps {
   onLeaveLobby: () => void;
   maxRounds: number;
   onMaxRoundsChange: (rounds: number) => void;
+  dareMode: 'AI' | 'COMMUNITY';
+  onDareModeChange: (mode: 'AI' | 'COMMUNITY') => void;
 }
 
 const Lobby: React.FC<LobbyProps> = ({ 
   players, currentPlayer, onStartGame, reactions, notificationPermission, 
   onRequestNotifications, onViewProfile, showNotification, onKickPlayer, 
-  onLeaveLobby, maxRounds, onMaxRoundsChange 
+  onLeaveLobby, maxRounds, onMaxRoundsChange, dareMode, onDareModeChange
 }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [kickConfirmPlayer, setKickConfirmPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const canStart = currentPlayer.isHost && players.length >= 2;
   const onlineFriends = currentPlayer.friends.length; // Simplified for mock
 
   useEffect(() => {
-    // Cleanup interval on component unmount
-    return () => {
-        if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-        }
-    };
-  }, []);
+    if (countdown === null) return;
+
+    if (countdown <= 0) {
+      onStartGame();
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      setCountdown(countdown - 1);
+    }, 1000);
+
+    // This cleanup function will run when the component unmounts or before the effect runs again.
+    return () => clearTimeout(timerId);
+  }, [countdown, onStartGame]);
 
   const handleStartCountdown = () => {
-    if (!canStart || countdown !== null) return;
-    
-    let count = 5;
-    setCountdown(count);
-    
-    countdownIntervalRef.current = setInterval(() => {
-        count--;
-        setCountdown(count);
-        if (count <= 0) {
-            if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
-            }
-            onStartGame();
-        }
-    }, 1000);
+    if (canStart && countdown === null) {
+      setCountdown(5);
+    }
   };
 
   const handleCancelCountdown = () => {
-    if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-    }
     setCountdown(null);
   };
 
@@ -104,19 +96,38 @@ const Lobby: React.FC<LobbyProps> = ({
     }
 
     return (
-        <div className="w-full max-w-lg mx-auto bg-gray-900/50 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-                <label htmlFor="rounds-select" className="font-bold text-lg">Rounds:</label>
-                <select
-                  id="rounds-select"
-                  value={maxRounds}
-                  onChange={(e) => onMaxRoundsChange(Number(e.target.value))}
-                  className="bg-gray-700 border border-gray-600 rounded-md p-2 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="3">3</option>
-                  <option value="5">5</option>
-                  <option value="7">7</option>
-                </select>
+        <div className="w-full max-w-2xl mx-auto bg-gray-900/50 rounded-lg p-4 flex flex-col items-center gap-4">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-4">
+                <div className="flex items-center gap-3">
+                    <label htmlFor="rounds-select" className="font-bold text-lg">Rounds:</label>
+                    <select
+                      id="rounds-select"
+                      value={maxRounds}
+                      onChange={(e) => onMaxRoundsChange(Number(e.target.value))}
+                      className="bg-gray-700 border border-gray-600 rounded-md p-2 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="3">3</option>
+                      <option value="5">5</option>
+                      <option value="7">7</option>
+                    </select>
+                </div>
+                 <div className="flex items-center gap-3">
+                    <label className="font-bold text-lg">Dares:</label>
+                    <div className="flex items-center bg-gray-700 rounded-full p-1">
+                        <button 
+                            onClick={() => onDareModeChange('AI')}
+                            className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors ${dareMode === 'AI' ? 'bg-purple-600 text-white' : 'text-gray-300'}`}
+                        >
+                            🤖 AI
+                        </button>
+                        <button 
+                            onClick={() => onDareModeChange('COMMUNITY')}
+                            className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors ${dareMode === 'COMMUNITY' ? 'bg-purple-600 text-white' : 'text-gray-300'}`}
+                        >
+                            👥 Players
+                        </button>
+                    </div>
+                </div>
             </div>
             <button
               onClick={handleStartCountdown}
@@ -146,7 +157,10 @@ const Lobby: React.FC<LobbyProps> = ({
     return (
         <div className="text-center">
             <p className="text-lg md:text-xl text-yellow-400">Waiting for the host ({players.find(p => p.isHost)?.name}) to start...</p>
-            <p className="text-md text-gray-300 mt-2">Game Rounds: <span className="font-bold text-white">{maxRounds}</span></p>
+            <div className="flex justify-center items-center gap-4 mt-2">
+                <p className="text-md text-gray-300">Rounds: <span className="font-bold text-white">{maxRounds}</span></p>
+                <p className="text-md text-gray-300">Dares: <span className="font-bold text-white">{dareMode === 'AI' ? '🤖 AI' : '👥 Players'}</span></p>
+            </div>
         </div>
     );
   };

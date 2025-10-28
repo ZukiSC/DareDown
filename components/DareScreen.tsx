@@ -7,8 +7,6 @@ interface DareScreenProps {
   onStartLiveDare: () => void;
   onUsePowerUp: (powerUpId: PowerUpType) => void;
   currentPlayer: Player;
-  // FIX: Added players prop to match what's passed in App.tsx
-  players: Player[];
 }
 
 const DareScreen: React.FC<DareScreenProps> = ({ loser, dare, onStartLiveDare, onUsePowerUp, currentPlayer }) => {

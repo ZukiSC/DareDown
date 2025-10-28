@@ -43,7 +43,6 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
         <div 
           key={Date.now()}
           className="absolute -top-12 text-5xl animate-ping-once z-20"
-          style={{ animation: 'ping-once 1.5s cubic-bezier(0, 0, 0.2, 1) forwards' }}
         >
           {reaction}
         </div>
@@ -74,26 +73,3 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
 };
 
 export default PlayerAvatar;
-
-// Add this to your CSS or a style block in index.html for the animation
-const animationStyle = document.createElement('style');
-animationStyle.innerHTML = `
-  @keyframes ping-once {
-    0% {
-      transform: scale(0.5);
-      opacity: 0.8;
-    }
-    80% {
-      transform: scale(1.5);
-      opacity: 0;
-    }
-    100% {
-      transform: scale(1.5);
-      opacity: 0;
-    }
-  }
-  .animate-ping-once {
-    animation: ping-once 1.5s cubic-bezier(0, 0, 0.2, 1) forwards;
-  }
-`;
-document.head.appendChild(animationStyle);
