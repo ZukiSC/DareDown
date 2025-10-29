@@ -68,7 +68,8 @@ type Action =
   | { type: 'SUBMIT_DARE'; payload: Dare }
   | { type: 'START_DARE_VOTING' }
   | { type: 'VOTE_FOR_DARE'; payload: string }
-  | { type: 'FINALIZE_DARE_VOTE' };
+  | { type: 'FINALIZE_DARE_VOTE' }
+  | { type: 'UPDATE_CURRENT_DARE'; payload: Partial<Dare> };
 
 
 // --- REDUCER ---
@@ -95,6 +96,8 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
       return { ...state, gameState: GameState.DARE_SCREEN, currentDare: action.payload.dare, roundLoserId: action.payload.loserId };
     case 'START_LIVE_DARE':
       return { ...state, gameState: GameState.DARE_LIVE_STREAM };
+    case 'UPDATE_CURRENT_DARE':
+        return { ...state, currentDare: state.currentDare ? { ...state.currentDare, ...action.payload } : null };
     case 'COMPLETE_DARE':
       return { ...state, currentDare: action.payload.dare, gameState: GameState.LEADERBOARD };
     case 'ADD_TO_ARCHIVE':
@@ -160,7 +163,8 @@ interface GameStoreContextType extends GameStoreState {
   handleMiniGameEnd: (loserIds: string[]) => void;
   handleSuddenDeathEnd: (loserId: string) => void;
   handleStartLiveDare: () => void;
-  handleLiveDareVote: (passed: boolean, replayUrl?: string) => void;
+  handleStreamEnd: (replayUrl?: string) => void;
+  handleProofVote: (passed: boolean) => void;
   handleUsePowerUp: (powerUpId: PowerUpType) => void;
   handleKickPlayer: (playerId: string) => void;
   handleLeaveLobby: () => void;
@@ -281,7 +285,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     }, [players, currentPlayer, handleNextRound, setLoading]);
     
     useEffect(() => {
-        if (roundLoser && state.gameState !== GameState.DARE_SCREEN && state.gameState !== GameState.DARE_SUBMISSION && state.gameState !== GameState.DARE_VOTING) {
+        if (roundLoser && ![GameState.DARE_SCREEN, GameState.DARE_SUBMISSION, GameState.DARE_VOTING, GameState.DARE_PROOF, GameState.DARE_LIVE_STREAM].includes(state.gameState)) {
             if (state.dareMode === 'AI') {
                 generateAndShowDare(roundLoser);
             } else {
@@ -301,14 +305,23 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const handleSuddenDeathEnd = (loserId: string) => {
         dispatch({ type: 'END_MINIGAME', payload: { loserIds: [loserId] } });
     };
+
+    const handleStreamEnd = useCallback((replayUrl?: string) => {
+        if (state.currentDare) {
+            // Using a funny GIF as mock proof.
+            const proofUrl = 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExejE3aGo2aWRucmNtd2ZucWJsd3hrYjF0M3p2dTk0bThscjFkeXVoYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LqxpA22cuYg426iI4i/giphy.gif';
+            dispatch({ type: 'UPDATE_CURRENT_DARE', payload: { proof: proofUrl, replayUrl } });
+            dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_PROOF });
+        }
+    }, [state.currentDare]);
     
-    const handleLiveDareVote = (passed: boolean, replayUrl?: string) => {
+    const handleProofVote = useCallback((passed: boolean) => {
         if (roundLoser && state.currentDare) {
             const newStatus = passed ? 'completed' : 'failed';
-            const completedDare: Dare = { ...state.currentDare, status: newStatus, replayUrl };
+            const completedDare: Dare = { ...state.currentDare, status: newStatus };
             dispatch({ type: 'COMPLETE_DARE', payload: { dare: completedDare, passed } });
 
-            if(passed && replayUrl) {
+            if(passed && completedDare.replayUrl) {
                 dispatch({ type: 'ADD_TO_ARCHIVE', payload: completedDare });
             }
 
@@ -336,7 +349,8 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             }
         }
         setTimeout(() => handleNextRound(), 5000);
-    };
+    }, [roundLoser, state.currentDare, updatePlayer, players, handleNextRound, showUnlock]);
+
 
     const handleUsePowerUp = (powerUpId: PowerUpType) => {
         if (!currentPlayer.powerUps.includes(powerUpId)) return;
@@ -471,7 +485,8 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleMiniGameEnd,
         handleSuddenDeathEnd,
         handleStartLiveDare: () => dispatch({ type: 'START_LIVE_DARE' }),
-        handleLiveDareVote,
+        handleStreamEnd,
+        handleProofVote,
         handleUsePowerUp,
         handleKickPlayer,
         handleLeaveLobby,
@@ -480,7 +495,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         setDareMode: (mode: 'AI' | 'COMMUNITY') => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
         handleDareSubmit,
         handleDareVote,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleLiveDareVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote]);
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote]);
 
     return (
         <GameStoreContext.Provider value={value}>

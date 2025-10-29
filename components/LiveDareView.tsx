@@ -5,7 +5,7 @@ import { rtcService } from '../services/rtcService';
 interface LiveDareViewProps {
   dare: Dare | null;
   loser: Player | null;
-  onVote: (passed: boolean, replayUrl?: string) => void;
+  onStreamEnd: (replayUrl?: string) => void;
   currentPlayer: Player;
   reactions: { id: string; playerId: string; emoji: string }[];
   greetings: FloatingGreeting[];
@@ -50,11 +50,9 @@ const GreetingSender: React.FC<{ onSend: (text: string) => void }> = ({ onSend }
   );
 };
 
-const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onVote, currentPlayer, reactions, greetings, onSendGreeting }) => {
+const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onStreamEnd, currentPlayer, reactions, greetings, onSendGreeting }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [vote, setVote] = useState<'pass' | 'fail' | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,20 +91,23 @@ const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onVote, curren
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
-
-  const handleVoteClick = (passed: boolean) => {
-    if (hasVoted) return;
-    setHasVoted(true);
-    setVote(passed ? 'pass' : 'fail');
-    
-    const replayUrl = passed ? `mock-replay-${dare?.id}.mp4` : undefined;
-    setTimeout(() => onVote(passed, replayUrl), 2000);
-  };
   
+  // Automatically end the stream after a duration
+  useEffect(() => {
+    if(!isStreaming && !isLoser) return; // Only streamer's timer matters
+
+    const timer = setTimeout(() => {
+        handleEndStream();
+    }, 15000); // 15 second dare
+
+    return () => clearTimeout(timer);
+  }, [isStreaming, isLoser]);
+
+
   const handleEndStream = () => {
+      if (!isStreaming && !isLoser) return; // Prevent viewers from ending stream
       setIsStreaming(false);
-      // Simulate loser failing the dare by ending early
-      onVote(false);
+      onStreamEnd(`mock-replay-${dare?.id}.mp4`);
   }
 
   if (error) {
@@ -171,31 +172,8 @@ const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onVote, curren
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <div>
-              <h3 className="font-semibold mb-2 text-center">Did {loser?.name} do it?</h3>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleVoteClick(true)}
-                  disabled={hasVoted}
-                  className={`py-3 px-8 text-white font-bold text-xl rounded-lg shadow-lg transform transition-all active:scale-95
-                    ${hasVoted ? (vote === 'pass' ? 'bg-green-600 scale-110' : 'bg-gray-600 opacity-50') : 'bg-green-500 hover:bg-green-600'}`
-                  }
-                >
-                  {vote === 'pass' ? 'Voted!' : '👍 Pass'}
-                </button>
-                <button
-                  onClick={() => handleVoteClick(false)}
-                  disabled={hasVoted}
-                  className={`py-3 px-8 text-white font-bold text-xl rounded-lg shadow-lg transform transition-all active:scale-95
-                    ${hasVoted ? (vote === 'fail' ? 'bg-red-600 scale-110' : 'bg-gray-600 opacity-50') : 'bg-red-500 hover:bg-red-600'}`
-                  }
-                >
-                  {vote === 'fail' ? 'Voted!' : '👎 Fail'}
-                </button>
-              </div>
-              {hasVoted && <p className="mt-2 text-sm text-yellow-400 text-center animate-pulse">Vote cast! Waiting for others...</p>}
-            </div>
-            {!hasVoted && <GreetingSender onSend={onSendGreeting} />}
+              <p className="text-lg text-white font-semibold animate-pulse">Watching {loser?.name}...</p>
+              <GreetingSender onSend={onSendGreeting} />
           </div>
         )}
          {/* Placeholder for safety/extra features */}

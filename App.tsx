@@ -20,6 +20,7 @@ import ReplayViewerModal from './components/ReplayViewerModal';
 import MainMenuScreen from './components/MainMenuScreen';
 import DareSubmissionScreen from './components/DareSubmissionScreen';
 import DareVotingScreen from './components/DareVotingScreen';
+import DareProofScreen from './components/DareProofScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -47,9 +48,9 @@ const AppContent = () => {
     // --- HANDLERS FROM STORES ---
     const {
         handleCreateLobby, handleCategorySelect, handleCustomizationSave, handleStartGame,
-        handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleLiveDareVote,
-        handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds, handleViewReplay,
-        setDareMode, handleDareSubmit, handleDareVote
+        handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleStreamEnd,
+        handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
+        handleViewReplay, setDareMode, handleDareSubmit, handleDareVote
     } = useGameStore();
 
     const {
@@ -131,7 +132,9 @@ const AppContent = () => {
                 case GameState.DARE_SCREEN:
                     return <DareScreen loser={roundLoser} dare={currentDare} onStartLiveDare={handleStartLiveDare} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
                 case GameState.DARE_LIVE_STREAM:
-                    return <LiveDareView dare={currentDare} loser={roundLoser} onVote={handleLiveDareVote} currentPlayer={currentPlayer} reactions={activeReactions} greetings={greetings} onSendGreeting={handleSendGreeting} />;
+                    return <LiveDareView dare={currentDare} loser={roundLoser} onStreamEnd={handleStreamEnd} currentPlayer={currentPlayer} reactions={activeReactions} greetings={greetings} onSendGreeting={handleSendGreeting} />;
+                case GameState.DARE_PROOF:
+                    return <DareProofScreen dare={currentDare} loser={roundLoser} onVote={handleProofVote} currentPlayerId={currentPlayer.id} />;
                 case GameState.LEADERBOARD:
                     return <Leaderboard players={players} isEndOfGame={currentRound >= maxRounds} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
                 default:
