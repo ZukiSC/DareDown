@@ -4,6 +4,9 @@ import QuickQuizGame from './games/QuickQuizGame';
 import TapSpeedGame from './games/TapSpeedGame';
 import NumberRaceGame from './games/NumberRaceGame';
 import MemoryMatchGame from './games/MemoryMatchGame';
+import DoodleDownGame from './games/DoodleDownGame';
+import RhythmRushGame from './games/RhythmRushGame';
+import SpotTheDifferenceGame from './games/SpotTheDifferenceGame';
 import PlayerAvatar from './PlayerAvatar';
 
 interface GameScreenProps {
@@ -22,6 +25,9 @@ const gameComponents = {
   TAP_SPEED: TapSpeedGame,
   NUMBER_RACE: NumberRaceGame,
   MEMORY_MATCH: MemoryMatchGame,
+  DOODLE_DOWN: DoodleDownGame,
+  RHYTHM_RUSH: RhythmRushGame,
+  SPOT_THE_DIFFERENCE: SpotTheDifferenceGame,
 };
 
 const gameTitles = {
@@ -29,6 +35,9 @@ const gameTitles = {
     TAP_SPEED: 'Tap Speed Test!',
     NUMBER_RACE: 'Number Race!',
     MEMORY_MATCH: 'Memory Match!',
+    DOODLE_DOWN: 'Doodle Down!',
+    RHYTHM_RUSH: 'Rhythm Rush!',
+    SPOT_THE_DIFFERENCE: 'Spot The Difference!',
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlayerId, onMiniGameEnd, round, reactions, extraTime, onViewProfile }) => {
@@ -74,6 +83,15 @@ const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlay
             )}
             {challenge.type === 'MEMORY_MATCH' && (
                 <p className="text-2xl md:text-4xl font-semibold">Find all the matching pairs!</p>
+            )}
+             {challenge.type === 'DOODLE_DOWN' && (
+                <p className="text-2xl md:text-4xl font-semibold">Draw the prompt on your screen!</p>
+            )}
+            {challenge.type === 'RHYTHM_RUSH' && (
+                <p className="text-2xl md:text-4xl font-semibold">Repeat the sequence correctly!</p>
+            )}
+             {challenge.type === 'SPOT_THE_DIFFERENCE' && (
+                <p className="text-2xl md:text-4xl font-semibold">Find the 5 differences between the images!</p>
             )}
             <div className="mt-8 text-6xl font-bold animate-ping">{countdown}</div>
         </div>

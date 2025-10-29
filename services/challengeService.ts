@@ -19,11 +19,25 @@ const CHALLENGE_DATABASE: Challenge[] = [
     { id: 'g2', type: 'TAP_SPEED', category: 'General', content: {} },
     { id: 'g3', type: 'NUMBER_RACE', category: 'General', content: {} },
     { id: 'g4', type: 'MEMORY_MATCH', category: 'General', content: { pairCount: 6 } }, // 6 pairs = 12 cards
+    { id: 'g5', type: 'DOODLE_DOWN', category: 'General', content: { word: 'House' } },
+    { id: 'g6', type: 'DOODLE_DOWN', category: 'General', content: { word: 'Pizza' } },
+    { id: 'g7', type: 'SPOT_THE_DIFFERENCE', category: 'General', content: { 
+        imageA: 'https://i.imgur.com/p51s24s.png', 
+        imageB: 'https://i.imgur.com/k16z3E5.png',
+        differences: [
+            { x: 588, y: 300, radius: 25 }, // Bow tie
+            { x: 841, y: 111, radius: 20 }, // Star
+            { x: 153, y: 668, radius: 25 }, // Mouse hole
+            { x: 1060, y: 205, radius: 30 }, // Clock
+            { x: 598, y: 708, radius: 25 }, // Rug pattern
+        ]
+    }},
     
     // Speed/Reflex
     { id: 's1', type: 'TAP_SPEED', category: 'Speed/Reflex', content: {} },
     { id: 's2', type: 'NUMBER_RACE', category: 'Speed/Reflex', content: {} },
     { id: 's3', type: 'MEMORY_MATCH', category: 'Speed/Reflex', content: { pairCount: 8 } }, // 8 pairs = 16 cards
+    { id: 's4', type: 'RHYTHM_RUSH', category: 'Speed/Reflex', content: { initialSequenceLength: 3 } },
 ];
 
 

@@ -80,7 +80,7 @@ export enum GameState {
   GAME_END = 'GAME_END',
 }
 
-export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE' | 'MEMORY_MATCH';
+export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE' | 'MEMORY_MATCH' | 'DOODLE_DOWN' | 'RHYTHM_RUSH' | 'SPOT_THE_DIFFERENCE';
 
 export interface QuizQuestion {
   question: string;
