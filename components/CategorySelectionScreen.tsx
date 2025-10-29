@@ -3,6 +3,7 @@ import { Category } from '../types';
 
 interface CategorySelectionScreenProps {
   onSelectCategory: (category: Category) => void;
+  onGoBack: () => void;
 }
 
 const CATEGORIES: { name: Category, description: string, emoji: string }[] = [
@@ -12,9 +13,16 @@ const CATEGORIES: { name: Category, description: string, emoji: string }[] = [
     { name: 'Speed/Reflex', description: 'Quick fingers win!', emoji: '⚡️' },
 ];
 
-const CategorySelectionScreen: React.FC<CategorySelectionScreenProps> = ({ onSelectCategory }) => {
+const CategorySelectionScreen: React.FC<CategorySelectionScreenProps> = ({ onSelectCategory, onGoBack }) => {
   return (
-    <div className="flex flex-col h-full items-center justify-center text-center p-4">
+    <div className="flex flex-col h-full items-center justify-center text-center p-4 relative">
+      <button onClick={onGoBack} className="absolute top-2 left-2 text-sm px-4 py-2 bg-gray-600/80 hover:bg-gray-600 rounded-full transition-colors transform active:scale-95 z-10 flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back
+      </button>
+
       <h1 className="text-4xl md:text-6xl font-bold text-purple-400 drop-shadow-lg mb-4">Choose Your Challenge!</h1>
       <p className="text-lg text-gray-300 mb-8">Select a category for this game session.</p>
       

@@ -5,9 +5,10 @@ import { getAllAvatars, getAllColors, getAllBadges } from '../services/customiza
 interface CustomizationScreenProps {
   player: Player;
   onSave: (customization: PlayerCustomization) => void;
+  onGoBack: () => void;
 }
 
-const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSave }) => {
+const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSave, onGoBack }) => {
   const [customization, setCustomization] = useState<PlayerCustomization>(player.customization);
 
   const avatars = getAllAvatars();
@@ -26,7 +27,14 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ player, onSav
   }
 
   return (
-    <div className="flex flex-col h-full items-center justify-center text-center p-2">
+    <div className="flex flex-col h-full items-center justify-center text-center p-2 relative">
+      <button onClick={onGoBack} className="absolute top-2 left-2 text-sm px-4 py-2 bg-gray-600/80 hover:bg-gray-600 rounded-full transition-colors transform active:scale-95 z-10 flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back
+      </button>
+
       <h1 className="text-4xl md:text-5xl font-bold text-purple-400 mb-4">Customize Your Avatar</h1>
       
       <div className="flex-grow w-full overflow-y-auto space-y-6">

@@ -52,7 +52,7 @@ const AppContent = () => {
         handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleStreamEnd,
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
-        handleReturnToMenu,
+        handleReturnToMenu, handleGoBack
     } = useGameStore();
 
     const {
@@ -88,7 +88,7 @@ const AppContent = () => {
             return (
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in">
                     <div className="w-full max-w-4xl h-[85vh] bg-gray-800 rounded-2xl p-8">
-                         <CategorySelectionScreen onSelectCategory={handleCategorySelect} />
+                         <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={() => {}} />
                     </div>
                 </div>
             )
@@ -103,9 +103,9 @@ const AppContent = () => {
                 case GameState.MAIN_MENU:
                     return <MainMenuScreen onCreateLobby={handleCreateLobby} />;
                 case GameState.CATEGORY_SELECTION:
-                    return <CategorySelectionScreen onSelectCategory={handleCategorySelect} />;
+                    return <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={handleGoBack} />;
                 case GameState.CUSTOMIZATION:
-                    return <CustomizationScreen player={currentPlayer} onSave={handleCustomizationSave} />;
+                    return <CustomizationScreen player={currentPlayer} onSave={handleCustomizationSave} onGoBack={handleGoBack} />;
                 case GameState.LOBBY:
                     return <Lobby 
                         players={players} 

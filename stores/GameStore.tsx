@@ -71,7 +71,8 @@ type Action =
   | { type: 'FINALIZE_DARE_VOTE' }
   | { type: 'UPDATE_CURRENT_DARE'; payload: Partial<Dare> }
   | { type: 'PLAY_AGAIN' }
-  | { type: 'RETURN_TO_MENU' };
+  | { type: 'RETURN_TO_MENU' }
+  | { type: 'GO_BACK' };
 
 
 // --- REDUCER ---
@@ -161,6 +162,15 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
         };
     case 'RETURN_TO_MENU':
         return initialState;
+    case 'GO_BACK':
+        switch (state.gameState) {
+            case GameState.CATEGORY_SELECTION:
+                return { ...state, gameState: GameState.MAIN_MENU };
+            case GameState.CUSTOMIZATION:
+                return { ...state, gameState: GameState.CATEGORY_SELECTION };
+            default:
+                return state;
+        }
     default:
       return state;
   }
@@ -186,6 +196,7 @@ interface GameStoreContextType extends GameStoreState {
   handleViewReplay: (dareId: string) => void;
   handlePlayAgain: () => void;
   handleReturnToMenu: () => void;
+  handleGoBack: () => void;
   setMaxRounds: (rounds: number) => void;
   setDareMode: (mode: 'AI' | 'COMMUNITY') => void;
   handleDareSubmit: (dareText: string) => void;
@@ -502,6 +513,10 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         dispatch({ type: 'RETURN_TO_MENU' });
     };
 
+    const handleGoBack = () => {
+        dispatch({ type: 'GO_BACK' });
+    };
+
     // --- CONTEXT VALUE ---
     const value = useMemo(() => ({
         ...state,
@@ -523,6 +538,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleViewReplay,
         handlePlayAgain,
         handleReturnToMenu,
+        handleGoBack,
         setMaxRounds: (r: number) => dispatch({ type: 'SET_MAX_ROUNDS', payload: r }),
         setDareMode: (mode: 'AI' | 'COMMUNITY') => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
         handleDareSubmit,
