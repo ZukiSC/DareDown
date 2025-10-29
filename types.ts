@@ -77,6 +77,7 @@ export enum GameState {
   DARE_LIVE_STREAM = 'DARE_LIVE_STREAM',
   DARE_PROOF = 'DARE_PROOF',
   LEADERBOARD = 'LEADERBOARD',
+  GAME_END = 'GAME_END',
 }
 
 export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE' | 'MEMORY_MATCH';

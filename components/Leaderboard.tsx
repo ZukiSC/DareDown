@@ -1,11 +1,9 @@
 import React from 'react';
 import { Player, PowerUpType, Dare } from '../types';
-import Confetti from './Confetti';
 import PlayerAvatar from './PlayerAvatar';
 
 interface LeaderboardProps {
   players: Player[];
-  isEndOfGame: boolean;
   onUsePowerUp: (powerUpId: PowerUpType) => void;
   currentPlayer: Player;
   onViewProfile: (playerId: string) => void;
@@ -13,26 +11,16 @@ interface LeaderboardProps {
   onViewReplay: (dareId: string) => void;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePowerUp, currentPlayer, onViewProfile, currentDare, onViewReplay }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ players, onUsePowerUp, currentPlayer, onViewProfile, currentDare, onViewReplay }) => {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-  const winner = sortedPlayers.length > 0 ? sortedPlayers[0] : null;
   const hasSwapCategory = currentPlayer.powerUps.includes('SWAP_CATEGORY');
   const showReplayButton = currentDare?.status === 'completed' && currentDare.replayUrl;
 
   return (
     <div className="flex flex-col items-center h-full p-4 relative">
-      {isEndOfGame && <Confetti />}
       <h1 className="text-4xl md:text-5xl font-bold text-purple-400 mb-6">
-        {isEndOfGame ? 'Final Leaderboard' : 'Leaderboard'}
+        Leaderboard
       </h1>
-      {isEndOfGame && winner && (
-          <div className="text-center mb-6">
-              <p className="text-2xl text-yellow-400">🏆 WINNER 🏆</p>
-              <div className="flex justify-center my-4">
-                <PlayerAvatar player={winner} isCurrentPlayer={winner.id === currentPlayer.id} isWinner={true} onClick={onViewProfile}/>
-              </div>
-          </div>
-      )}
       <div className="w-full max-w-lg bg-gray-800/60 rounded-lg shadow-lg p-4">
         {sortedPlayers.map((player, index) => (
           <div
@@ -53,27 +41,25 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, isEndOfGame, onUsePo
           </div>
         ))}
       </div>
-      {!isEndOfGame && (
-          <div className="text-center mt-6">
-            {showReplayButton && (
-                <button
-                    onClick={() => onViewReplay(currentDare.id)}
-                    className="mb-4 py-2 px-4 bg-green-500 hover:bg-green-600 rounded-lg text-white font-semibold transform transition-transform active:scale-95"
-                >
-                    Watch Last Dare's Replay ▶️
-                </button>
-            )}
-            {hasSwapCategory && (
-                <button 
-                    onClick={() => onUsePowerUp('SWAP_CATEGORY')}
-                    className="mb-4 py-2 px-4 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-semibold"
-                >
-                   Use Power-Up: Swap Category 🔄
-                </button>
-            )}
-            <p className="text-xl animate-pulse">Next round starting soon...</p>
-          </div>
-      )}
+      <div className="text-center mt-6">
+        {showReplayButton && (
+            <button
+                onClick={() => onViewReplay(currentDare.id)}
+                className="mb-4 py-2 px-4 bg-green-500 hover:bg-green-600 rounded-lg text-white font-semibold transform transition-transform active:scale-95"
+            >
+                Watch Last Dare's Replay ▶️
+            </button>
+        )}
+        {hasSwapCategory && (
+            <button 
+                onClick={() => onUsePowerUp('SWAP_CATEGORY')}
+                className="mb-4 py-2 px-4 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-semibold"
+            >
+               Use Power-Up: Swap Category 🔄
+            </button>
+        )}
+        <p className="text-xl animate-pulse">Next round starting soon...</p>
+      </div>
     </div>
   );
 };

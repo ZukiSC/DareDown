@@ -21,6 +21,7 @@ import MainMenuScreen from './components/MainMenuScreen';
 import DareSubmissionScreen from './components/DareSubmissionScreen';
 import DareVotingScreen from './components/DareVotingScreen';
 import DareProofScreen from './components/DareProofScreen';
+import GameEndScreen from './components/GameEndScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -50,7 +51,8 @@ const AppContent = () => {
         handleCreateLobby, handleCategorySelect, handleCustomizationSave, handleStartGame,
         handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleStreamEnd,
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
-        handleViewReplay, setDareMode, handleDareSubmit, handleDareVote
+        handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
+        handleReturnToMenu,
     } = useGameStore();
 
     const {
@@ -136,7 +138,9 @@ const AppContent = () => {
                 case GameState.DARE_PROOF:
                     return <DareProofScreen dare={currentDare} loser={roundLoser} onVote={handleProofVote} currentPlayerId={currentPlayer.id} />;
                 case GameState.LEADERBOARD:
-                    return <Leaderboard players={players} isEndOfGame={currentRound >= maxRounds} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
+                    return <Leaderboard players={players} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
+                case GameState.GAME_END:
+                    return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} />;
                 default:
                     return <MainMenuScreen onCreateLobby={handleCreateLobby} />;
                 }
@@ -147,7 +151,7 @@ const AppContent = () => {
   
     const showEmojiPanel = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY].includes(gameState);
     const showPowerUpPanel = [GameState.MINIGAME, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatPanel = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION].includes(gameState);
+    const showChatPanel = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
 
     if (!currentPlayer) {
         return (

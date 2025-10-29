@@ -69,7 +69,9 @@ type Action =
   | { type: 'START_DARE_VOTING' }
   | { type: 'VOTE_FOR_DARE'; payload: string }
   | { type: 'FINALIZE_DARE_VOTE' }
-  | { type: 'UPDATE_CURRENT_DARE'; payload: Partial<Dare> };
+  | { type: 'UPDATE_CURRENT_DARE'; payload: Partial<Dare> }
+  | { type: 'PLAY_AGAIN' }
+  | { type: 'RETURN_TO_MENU' };
 
 
 // --- REDUCER ---
@@ -114,7 +116,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             extraTime: 0
         };
     case 'END_GAME':
-        return { ...state, gameState: GameState.LEADERBOARD };
+        return { ...state, gameState: GameState.GAME_END };
     case 'USE_EXTRA_TIME':
         return { ...state, extraTime: 5 };
     case 'SET_SWAPPING_CATEGORY':
@@ -146,6 +148,19 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
         gameState: GameState.DARE_SCREEN,
         submittedDares: [], // Clear for next round
       };
+    case 'PLAY_AGAIN':
+        return {
+            ...state,
+            gameState: GameState.LOBBY,
+            currentRound: 0,
+            currentChallenge: null,
+            roundLoserId: null,
+            suddenDeathPlayerIds: [],
+            currentDare: null,
+            extraTime: 0,
+        };
+    case 'RETURN_TO_MENU':
+        return initialState;
     default:
       return state;
   }
@@ -169,6 +184,8 @@ interface GameStoreContextType extends GameStoreState {
   handleKickPlayer: (playerId: string) => void;
   handleLeaveLobby: () => void;
   handleViewReplay: (dareId: string) => void;
+  handlePlayAgain: () => void;
+  handleReturnToMenu: () => void;
   setMaxRounds: (rounds: number) => void;
   setDareMode: (mode: 'AI' | 'COMMUNITY') => void;
   handleDareSubmit: (dareText: string) => void;
@@ -471,6 +488,19 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             setViewingReplay(dareToPlay);
         }
     };
+    
+    const handlePlayAgain = () => {
+        // Reset scores for all players in the room for the new game
+        players.forEach(p => {
+            updatePlayer(p.id, { score: 0, powerUps: [] });
+        });
+        dispatch({ type: 'PLAY_AGAIN' });
+    };
+
+    const handleReturnToMenu = () => {
+        updatePlayer(currentPlayer.id, { isHost: false, score: 0, powerUps: [], category: undefined });
+        dispatch({ type: 'RETURN_TO_MENU' });
+    };
 
     // --- CONTEXT VALUE ---
     const value = useMemo(() => ({
@@ -491,6 +521,8 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleKickPlayer,
         handleLeaveLobby,
         handleViewReplay,
+        handlePlayAgain,
+        handleReturnToMenu,
         setMaxRounds: (r: number) => dispatch({ type: 'SET_MAX_ROUNDS', payload: r }),
         setDareMode: (mode: 'AI' | 'COMMUNITY') => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
         handleDareSubmit,
