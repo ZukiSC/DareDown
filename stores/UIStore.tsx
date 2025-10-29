@@ -1,6 +1,4 @@
-
-
-import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 import { Player, Dare, Badge, PowerUp, FloatingGreeting } from '../types';
 import { preloadSounds, toggleMute } from '../services/audioService';
 import { requestNotificationPermission } from '../services/notificationService';
@@ -112,7 +110,7 @@ interface UIStoreContextType extends UIStoreState {
 
 const UIStoreContext = createContext<UIStoreContextType | undefined>(undefined);
 
-export const UIStoreProvider = ({ children }: { children: React.ReactNode }) => {
+export const UIStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(uiReducer, initialState);
     const { currentPlayer, allPlayers } = useSocialStore();
 

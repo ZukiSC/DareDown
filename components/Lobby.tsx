@@ -28,6 +28,8 @@ const Lobby: React.FC<LobbyProps> = ({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [kickConfirmPlayer, setKickConfirmPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [inviteLink, setInviteLink] = useState('');
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
   
   const canStart = currentPlayer.isHost && players.length >= 2;
   const onlineFriends = currentPlayer.friends.length; // Simplified for mock
@@ -48,6 +50,15 @@ const Lobby: React.FC<LobbyProps> = ({
     return () => clearTimeout(timerId);
   }, [countdown, onStartGame]);
 
+  useEffect(() => {
+    if (showInviteModal) {
+      const lobbyId = Math.random().toString(36).substring(2, 9).toUpperCase();
+      const newLink = `${window.location.origin}${window.location.pathname}?lobby=${lobbyId}`;
+      setInviteLink(newLink);
+      setIsLinkCopied(false); // Reset copied state each time modal opens
+    }
+  }, [showInviteModal]);
+
   const handleStartCountdown = () => {
     if (canStart && countdown === null) {
       setCountdown(5);
@@ -58,9 +69,16 @@ const Lobby: React.FC<LobbyProps> = ({
     setCountdown(null);
   };
 
-  const handleInvite = (friendName: string) => {
-    showNotification(`Invitation sent to ${friendName}!`, '💌');
-    setShowInviteModal(false);
+  const handleCopyLink = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      showNotification('Invite link copied!', '📋');
+      setIsLinkCopied(true);
+      setTimeout(() => setIsLinkCopied(false), 2500); // Reset after 2.5 seconds
+    }).catch(err => {
+      console.error('Failed to copy link: ', err);
+      showNotification('Failed to copy link.', '❌');
+    });
   };
   
   const handleAvatarClick = (player: Player) => {
@@ -212,19 +230,27 @@ const Lobby: React.FC<LobbyProps> = ({
 
       {showInviteModal && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowInviteModal(false)}>
-            <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl border border-purple-500/50" onClick={e => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-purple-400 mb-4">Invite Friends</h2>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {currentPlayer.friends.length > 0 ? (
-                        currentPlayer.friends.map(friendId => (
-                            <div key={friendId} className="flex items-center justify-between bg-gray-700 p-2 rounded-lg">
-                                <span className="font-semibold">Friend {friendId}</span>
-                                <button onClick={() => handleInvite(`Friend ${friendId}`)} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded">Invite</button>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-gray-400">You have no friends to invite yet. Add some from the Social panel!</p>
-                    )}
+            <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl border border-purple-500/50 animate-pop-in" onClick={e => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-purple-400 mb-2">Invite Friends</h2>
+                <p className="text-gray-400 mb-4">Share this link to invite friends to your lobby!</p>
+                <div className="flex items-center bg-gray-900 rounded-lg p-2 border border-gray-700">
+                    <input
+                        type="text"
+                        readOnly
+                        value={inviteLink}
+                        className="bg-transparent text-gray-300 flex-grow focus:outline-none select-all"
+                        onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                        onClick={handleCopyLink}
+                        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors transform active:scale-95 ${
+                            isLinkCopied
+                            ? 'bg-green-600 text-white'
+                            : 'bg-purple-600 hover:bg-purple-500 text-white'
+                        }`}
+                    >
+                        {isLinkCopied ? 'Copied!' : 'Copy'}
+                    </button>
                 </div>
             </div>
         </div>

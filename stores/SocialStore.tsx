@@ -1,6 +1,4 @@
-
-
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, PropsWithChildren } from 'react';
 import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization } from '../types';
 
 // --- MOCK DATA ---
@@ -131,7 +129,7 @@ interface SocialStoreContextType extends SocialStoreState {
 
 const SocialStoreContext = createContext<SocialStoreContextType | undefined>(undefined);
 
-export const SocialStoreProvider = ({ children }: { children: React.ReactNode }) => {
+export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(socialReducer, initialState);
 
     const currentPlayer = useMemo(() => state.allPlayers.find(p => p.id === state.currentPlayerId)!, [state.allPlayers, state.currentPlayerId]);

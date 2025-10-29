@@ -36,15 +36,17 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, onReact, cur
         {Object.keys(message.reactions).length > 0 && (
           <div className="flex gap-1 mt-1">
             {Object.entries(message.reactions).map(([emoji, playerIds]) => {
-              if (playerIds.length === 0) return null;
-              const hasReacted = playerIds.includes(currentPlayerId);
+              // FIX: Cast playerIds from unknown to string[] as Object.entries can have loose typing.
+              const reactors = playerIds as string[];
+              if (reactors.length === 0) return null;
+              const hasReacted = reactors.includes(currentPlayerId);
               return (
                 <button
                   key={emoji}
                   onClick={() => onReact(message.id, emoji)}
                   className={`px-2 py-0.5 text-xs rounded-full transition-colors ${hasReacted ? 'bg-purple-600 border border-purple-400' : 'bg-gray-600/80 border border-transparent hover:bg-gray-600'}`}
                 >
-                  {emoji} {playerIds.length}
+                  {emoji} {reactors.length}
                 </button>
               );
             })}

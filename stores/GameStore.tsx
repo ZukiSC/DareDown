@@ -1,7 +1,5 @@
-
-
 // FIX: Corrected React import syntax.
-import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
 import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
@@ -175,7 +173,7 @@ interface GameStoreContextType extends GameStoreState {
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
 
-export const GameStoreProvider = ({ children }: { children: React.ReactNode }) => {
+export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
     const { currentPlayer, allPlayers, updatePlayer, addPlayer, removePlayer } = useSocialStore();
     const { setLoading, showNotification, showUnlock, setViewingReplay } = useUIStore();

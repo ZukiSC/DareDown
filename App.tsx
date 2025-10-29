@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
