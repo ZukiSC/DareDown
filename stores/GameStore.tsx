@@ -28,6 +28,7 @@ interface GameStoreState {
   dareArchive: Dare[];
   dareMode: 'AI' | 'COMMUNITY';
   submittedDares: Dare[];
+  winningDareId: string | null;
 }
 
 const initialState: GameStoreState = {
@@ -44,6 +45,7 @@ const initialState: GameStoreState = {
   dareArchive: [],
   dareMode: 'AI',
   submittedDares: [],
+  winningDareId: null,
 };
 
 // --- ACTIONS ---
@@ -69,6 +71,7 @@ type Action =
   | { type: 'START_DARE_VOTING' }
   | { type: 'VOTE_FOR_DARE'; payload: string }
   | { type: 'FINALIZE_DARE_VOTE' }
+  | { type: 'PROCEED_TO_DARE_SCREEN' }
   | { type: 'UPDATE_CURRENT_DARE'; payload: Partial<Dare> }
   | { type: 'PLAY_AGAIN' }
   | { type: 'RETURN_TO_MENU' }
@@ -141,13 +144,21 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
           d.id === action.payload ? { ...d, votes: (d.votes || 0) + 1 } : d
         )
       };
-    case 'FINALIZE_DARE_VOTE':
+    case 'FINALIZE_DARE_VOTE': {
+      if (state.submittedDares.length === 0) return state;
       const winningDare = [...state.submittedDares].sort((a, b) => (b.votes || 0) - (a.votes || 0))[0];
       return {
         ...state,
         currentDare: winningDare,
+        winningDareId: winningDare.id,
+      };
+    }
+    case 'PROCEED_TO_DARE_SCREEN':
+      return {
+        ...state,
         gameState: GameState.DARE_SCREEN,
-        submittedDares: [], // Clear for next round
+        submittedDares: [],
+        winningDareId: null,
       };
     case 'PLAY_AGAIN':
         return {
@@ -159,6 +170,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             suddenDeathPlayerIds: [],
             currentDare: null,
             extraTime: 0,
+            winningDareId: null,
         };
     case 'RETURN_TO_MENU':
         return initialState;
@@ -444,9 +456,14 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             });
         }
     
-        // Finalize vote
+        // Finalize vote and show results
         setTimeout(() => {
             dispatch({ type: 'FINALIZE_DARE_VOTE' });
+            
+            // Then, after showing results for a few seconds, proceed
+            setTimeout(() => {
+                dispatch({ type: 'PROCEED_TO_DARE_SCREEN' });
+            }, 4000); // 4 seconds to view results
         }, 300 * otherPlayers.length + 1000);
     };
 

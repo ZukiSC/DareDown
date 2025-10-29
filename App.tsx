@@ -34,7 +34,7 @@ const AppContent = () => {
     const {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
-        dareMode, submittedDares
+        dareMode, submittedDares, winningDareId
     } = useGameStore();
 
     const {
@@ -130,7 +130,7 @@ const AppContent = () => {
                 case GameState.DARE_SUBMISSION:
                     return <DareSubmissionScreen loser={roundLoser} currentPlayer={currentPlayer} players={players} onSubmit={handleDareSubmit} />;
                 case GameState.DARE_VOTING:
-                    return <DareVotingScreen dares={submittedDares} players={players} onVote={handleDareVote} />;
+                    return <DareVotingScreen dares={submittedDares} players={players} onVote={handleDareVote} winningDareId={winningDareId} />;
                 case GameState.DARE_SCREEN:
                     return <DareScreen loser={roundLoser} dare={currentDare} onStartLiveDare={handleStartLiveDare} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
                 case GameState.DARE_LIVE_STREAM:
