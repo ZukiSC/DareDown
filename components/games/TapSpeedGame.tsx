@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface TapSpeedGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -16,7 +16,6 @@ const GAME_DURATION = 5;
 const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, currentPlayerId, challenge, extraTime }) => {
   const [taps, setTaps] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
-  const [gameStarted, setGameStarted] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
   const extraTimeApplied = useRef(false);
 
@@ -28,51 +27,38 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
   }, [extraTime]);
 
   const handleTap = () => {
-    if (timeLeft > 0 && gameStarted) {
+    if (timeLeft > 0) {
       playSound('tap');
       setTaps(prev => prev + 1);
     }
   };
   
-  const determineLosers = useCallback((playerScore: number) => {
-    // Simulate scores for bot players
-    const scores = players.map(p => {
+  const finalizeScores = useCallback((playerScore: number) => {
+    const scores = new Map<string, number>();
+    players.forEach(p => {
         if (p.id === currentPlayerId) {
-            return { id: p.id, score: playerScore };
+            scores.set(p.id, playerScore);
+        } else {
+            // Bots score between 5 and 25
+            scores.set(p.id, Math.floor(Math.random() * 21) + 5);
         }
-        // Bots score between 5 and 25
-        return { id: p.id, score: Math.floor(Math.random() * 21) + 5 };
     });
-
-    if (scores.length === 0) return [];
-    
-    // Find the minimum score
-    const minScore = Math.min(...scores.map(s => s.score));
-    
-    // Find all players with that minimum score
-    const losers = scores.filter(s => s.score === minScore);
-
-    return losers.map(l => l.id);
-
-  }, [players, currentPlayerId]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd]);
 
   useEffect(() => {
-    if (!gameStarted || isFinished) return;
-
-    const timerId = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    if (isFinished) return;
+    const timerId = setTimeout(() => {
+        if (timeLeft > 1) {
+            setTimeLeft(timeLeft - 1);
+        } else {
+            playSound('timesUp');
+            setIsFinished(true);
+            finalizeScores(taps);
+        }
     }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [gameStarted, isFinished]);
-  
-  useEffect(() => {
-    if (timeLeft === 0 && !isFinished) {
-      setIsFinished(true);
-      playSound('timesUp');
-      onGameEnd(determineLosers(taps));
-    }
-  }, [timeLeft, isFinished, onGameEnd, determineLosers, taps, gameStarted]);
+    return () => clearTimeout(timerId);
+  }, [timeLeft, isFinished, finalizeScores, taps]);
 
 
   return (
@@ -85,12 +71,12 @@ const TapSpeedGame: React.FC<TapSpeedGameProps> = ({ onGameEnd, players, current
         </p>
         <button 
             onClick={handleTap}
-            disabled={timeLeft <= 0}
+            disabled={isFinished}
             className="w-48 h-48 bg-red-500 rounded-full text-2xl font-bold text-white shadow-2xl transition-transform transform active:scale-95 active:bg-red-600 active:shadow-inner disabled:bg-gray-600"
         >
             TAP!
         </button>
-        {timeLeft <= 0 && <p className="mt-8 text-2xl animate-pulse">Time's up!</p>}
+        {isFinished && <p className="mt-8 text-2xl animate-pulse">Time's up!</p>}
     </div>
   );
 };

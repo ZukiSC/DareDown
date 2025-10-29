@@ -1,7 +1,7 @@
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
-import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType } from '../types';
+import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
@@ -21,6 +21,8 @@ interface GameStoreState {
   maxRounds: number;
   currentChallenge: Challenge | null;
   roundLoserId: string | null;
+  losingTeamId: 'blue' | 'orange' | null;
+  teamVotes: { [voterId: string]: string }; // voterId -> votedForId
   suddenDeathPlayerIds: string[];
   currentDare: Dare | null;
   extraTime: number;
@@ -38,6 +40,8 @@ const initialState: GameStoreState = {
   maxRounds: 5,
   currentChallenge: null,
   roundLoserId: null,
+  losingTeamId: null,
+  teamVotes: {},
   suddenDeathPlayerIds: [],
   currentDare: null,
   extraTime: 0,
@@ -55,7 +59,8 @@ type Action =
   | { type: 'SET_PLAYERS_IN_ROOM'; payload: string[] }
   | { type: 'START_GAME'; payload: { challenge: Challenge } }
   | { type: 'SET_MAX_ROUNDS'; payload: number }
-  | { type: 'END_MINIGAME'; payload: { loserIds: string[] } }
+  // FIX: Updated END_MINIGAME to carry losingTeamId in payload.
+  | { type: 'END_MINIGAME'; payload: { playerScores: Map<string, number>, challengeType: MiniGameType, losingTeamId: 'blue' | 'orange' | null } }
   | { type: 'SET_SUDDEN_DEATH'; payload: { playerIds: string[] } }
   | { type: 'SET_DARE'; payload: { dare: Dare; loserId: string } }
   | { type: 'START_LIVE_DARE' }
@@ -75,7 +80,10 @@ type Action =
   | { type: 'UPDATE_CURRENT_DARE'; payload: Partial<Dare> }
   | { type: 'PLAY_AGAIN' }
   | { type: 'RETURN_TO_MENU' }
-  | { type: 'GO_BACK' };
+  | { type: 'GO_BACK' }
+  | { type: 'VOTE_FOR_TEAMMATE'; payload: { voterId: string, targetId: string } }
+  // FIX: Updated FINALIZE_TEAM_VOTE to carry losingTeamPlayers in payload.
+  | { type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: Player[] } };
 
 
 // --- REDUCER ---
@@ -91,15 +99,45 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
       return { ...state, gameState: GameState.MINIGAME, currentRound: 1, currentChallenge: action.payload.challenge };
     case 'SET_MAX_ROUNDS':
       return { ...state, maxRounds: action.payload };
-    case 'END_MINIGAME':
-        if (action.payload.loserIds.length > 1) {
-            return { ...state, gameState: GameState.SUDDEN_DEATH, suddenDeathPlayerIds: action.payload.loserIds, submittedDares: [] };
+    // FIX: Updated reducer to set losingTeamId from the action payload.
+    case 'END_MINIGAME': {
+      // Team logic is handled in the action creator, this just transitions state
+      return { ...state, gameState: GameState.TEAM_DARE_VOTE, submittedDares: [], losingTeamId: action.payload.losingTeamId };
+    }
+    case 'VOTE_FOR_TEAMMATE': {
+        return {
+            ...state,
+            teamVotes: {
+                ...state.teamVotes,
+                [action.payload.voterId]: action.payload.targetId,
+            }
+        };
+    }
+    // FIX: Refactored reducer to use losingTeamPlayers from payload, removing dependency on external state.
+    case 'FINALIZE_TEAM_VOTE': {
+        const { losingTeamPlayers } = action.payload;
+        const votes = Object.values(state.teamVotes);
+        if (votes.length === 0) { // Should not happen with real players
+             const randomLoser = losingTeamPlayers[Math.floor(Math.random() * losingTeamPlayers.length)];
+             return { ...state, roundLoserId: randomLoser?.id || null, teamVotes: {} };
         }
-        return { ...state, roundLoserId: action.payload.loserIds[0] || null, submittedDares: [] };
-    case 'SET_SUDDEN_DEATH':
+        const voteCounts = votes.reduce((acc, id) => {
+            acc[id] = (acc[id] || 0) + 1;
+            return acc;
+        }, {} as { [key: string]: number });
+        
+        const maxVotes = Math.max(...Object.values(voteCounts));
+        const losers = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
+        
+        // If there's a tie, pick one randomly
+        const finalLoserId = losers[Math.floor(Math.random() * losers.length)];
+
+        return { ...state, roundLoserId: finalLoserId, teamVotes: {} };
+    }
+    case 'SET_SUDDEN_DEATH': // Note: Sudden death is individual, overrides teams for a round.
       return { ...state, gameState: GameState.SUDDEN_DEATH, suddenDeathPlayerIds: action.payload.playerIds };
     case 'SET_DARE':
-      return { ...state, gameState: GameState.DARE_SCREEN, currentDare: action.payload.dare, roundLoserId: action.payload.loserId };
+      return { ...state, gameState: GameState.DARE_SCREEN, currentDare: action.payload.dare, roundLoserId: action.payload.loserId, losingTeamId: null };
     case 'START_LIVE_DARE':
       return { ...state, gameState: GameState.DARE_LIVE_STREAM };
     case 'UPDATE_CURRENT_DARE':
@@ -115,6 +153,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             gameState: GameState.MINIGAME,
             currentChallenge: action.payload.challenge,
             roundLoserId: null,
+            losingTeamId: null,
             currentDare: null,
             suddenDeathPlayerIds: [],
             extraTime: 0
@@ -130,7 +169,6 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
     case 'SET_DARE_MODE':
       return { ...state, dareMode: action.payload };
     case 'SUBMIT_DARE':
-      // Prevent duplicate submissions from same player (for mock)
       if (state.submittedDares.some(d => d.submitterId === action.payload.submitterId)) {
           return state;
       }
@@ -171,6 +209,8 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             currentDare: null,
             extraTime: 0,
             winningDareId: null,
+            losingTeamId: null,
+            teamVotes: {},
         };
     case 'RETURN_TO_MENU':
         return initialState;
@@ -197,7 +237,7 @@ interface GameStoreContextType extends GameStoreState {
   handleCategorySelect: (category: Category) => void;
   handleCustomizationSave: (customization: PlayerCustomization) => void;
   handleStartGame: () => void;
-  handleMiniGameEnd: (loserIds: string[]) => void;
+  handleMiniGameEnd: (scores: Map<string, number>, challengeType: MiniGameType) => void;
   handleSuddenDeathEnd: (loserId: string) => void;
   handleStartLiveDare: () => void;
   handleStreamEnd: (replayUrl?: string) => void;
@@ -213,13 +253,15 @@ interface GameStoreContextType extends GameStoreState {
   setDareMode: (mode: 'AI' | 'COMMUNITY') => void;
   handleDareSubmit: (dareText: string) => void;
   handleDareVote: (dareId: string) => void;
+  handleJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
+  handleTeamMateVote: (targetId: string) => void;
 }
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
 
 export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
-    const { currentPlayer, allPlayers, updatePlayer, addPlayer, removePlayer } = useSocialStore();
+    const { currentPlayer, allPlayers, updatePlayer } = useSocialStore();
     const { setLoading, showNotification, showUnlock, setViewingReplay } = useUIStore();
 
     // --- SELECTORS / DERIVED STATE ---
@@ -334,21 +376,64 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }
     }, [roundLoser, state.gameState, state.dareMode, generateAndShowDare]);
 
-    const handleMiniGameEnd = useCallback((loserIds: string[]) => {
-        if (loserIds.length === 0) {
-            handleNextRound();
-            return;
+    const handleMiniGameEnd = useCallback((playerScores: Map<string, number>, challengeType: MiniGameType) => {
+        const teamScores = { blue: { totalScore: 0, playerCount: 0 }, orange: { totalScore: 0, playerCount: 0 } };
+        
+        for (const player of players) {
+            if (player.teamId) {
+                const score = playerScores.get(player.id) || 0;
+                teamScores[player.teamId].totalScore += score;
+                teamScores[player.teamId].playerCount++;
+            }
         }
-        dispatch({ type: 'END_MINIGAME', payload: { loserIds } });
-    }, [handleNextRound]);
+
+        const blueAvg = teamScores.blue.playerCount > 0 ? teamScores.blue.totalScore / teamScores.blue.playerCount : 0;
+        const orangeAvg = teamScores.orange.playerCount > 0 ? teamScores.orange.totalScore / teamScores.orange.playerCount : 0;
+        
+        // Higher is better for: QUICK_QUIZ, TAP_SPEED, RHYTHM_RUSH, SPOT_THE_DIFFERENCE, DOODLE_DOWN
+        const higherIsBetter = ['QUICK_QUIZ', 'TAP_SPEED', 'RHYTHM_RUSH', 'SPOT_THE_DIFFERENCE', 'DOODLE_DOWN'].includes(challengeType);
+        
+        let losingTeamId: 'blue' | 'orange' | null = null;
+        if (teamScores.blue.playerCount > 0 && teamScores.orange.playerCount > 0) {
+            if (higherIsBetter) {
+                losingTeamId = blueAvg < orangeAvg ? 'blue' : 'orange';
+            } else { // Lower is better for MEMORY_MATCH, NUMBER_RACE
+                losingTeamId = blueAvg > orangeAvg ? 'blue' : 'orange';
+            }
+             if (blueAvg === orangeAvg) { // On tie, pick randomly
+                losingTeamId = Math.random() < 0.5 ? 'blue' : 'orange';
+            }
+        } else if (teamScores.blue.playerCount > 0) {
+            losingTeamId = 'blue';
+        } else if (teamScores.orange.playerCount > 0) {
+            losingTeamId = 'orange';
+        }
+
+        // FIX: Replaced direct reducer call and state mutation with a proper dispatch.
+        if (losingTeamId) {
+            dispatch({ type: 'END_MINIGAME', payload: { playerScores, challengeType, losingTeamId } });
+        } else {
+            handleNextRound();
+        }
+    }, [players, handleNextRound]);
 
     const handleSuddenDeathEnd = (loserId: string) => {
-        dispatch({ type: 'END_MINIGAME', payload: { loserIds: [loserId] } });
+        const loserPlayer = players.find(p => p.id === loserId);
+        if(loserPlayer) {
+            // Sudden death loser is determined, go straight to dare. The dare will be generated by the effect hook.
+            // We set a dummy dare here just to set the roundLoserId and transition state correctly.
+            const dummyDare: Dare = {
+                id: `dummy_${Date.now()}`,
+                text: 'Preparing dare...',
+                assigneeId: loserId,
+                status: 'pending'
+            };
+            dispatch({ type: 'SET_DARE', payload: { dare: dummyDare, loserId: loserId } });
+        }
     };
 
     const handleStreamEnd = useCallback((replayUrl?: string) => {
         if (state.currentDare) {
-            // Using a funny GIF as mock proof.
             const proofUrl = 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExejE3aGo2aWRucmNtd2ZucWJsd3hrYjF0M3p2dTk0bThscjFkeXVoYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LqxpA22cuYg426iI4i/giphy.gif';
             dispatch({ type: 'UPDATE_CURRENT_DARE', payload: { proof: proofUrl, replayUrl } });
             dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_PROOF });
@@ -364,7 +449,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             if(passed && completedDare.replayUrl) {
                 dispatch({ type: 'ADD_TO_ARCHIVE', payload: completedDare });
             }
-
             playSound(passed ? 'dareComplete' : 'incorrect');
             
             updatePlayer(roundLoser.id, {
@@ -422,7 +506,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         };
         dispatch({ type: 'SUBMIT_DARE', payload: newDare });
     
-        // Simulate other players submitting dares
         const otherPlayers = players.filter(p => p.id !== currentPlayer.id && p.id !== state.roundLoserId);
         otherPlayers.forEach((player, index) => {
             setTimeout(() => {
@@ -434,7 +517,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             }, 500 * (index + 1));
         });
     
-        // After all submissions, move to voting
         setTimeout(() => {
             dispatch({ type: 'START_DARE_VOTING' });
         }, 500 * otherPlayers.length + 1000);
@@ -443,7 +525,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const handleDareVote = (dareId: string) => {
         dispatch({ type: 'VOTE_FOR_DARE', payload: dareId });
     
-        // Simulate other players voting
         const otherPlayers = players.filter(p => p.id !== currentPlayer.id && p.id !== state.roundLoserId);
         const availableDareIds = state.submittedDares.map(d => d.id);
         
@@ -456,20 +537,37 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             });
         }
     
-        // Finalize vote and show results
         setTimeout(() => {
             dispatch({ type: 'FINALIZE_DARE_VOTE' });
-            
-            // Then, after showing results for a few seconds, proceed
             setTimeout(() => {
                 dispatch({ type: 'PROCEED_TO_DARE_SCREEN' });
-            }, 4000); // 4 seconds to view results
+            }, 4000); 
         }, 300 * otherPlayers.length + 1000);
+    };
+
+    const handleTeamMateVote = (targetId: string) => {
+        dispatch({ type: 'VOTE_FOR_TEAMMATE', payload: { voterId: currentPlayer.id, targetId } });
+        // Simulate other losing team members voting
+        const losingTeam = players.filter(p => p.teamId === state.losingTeamId);
+        const otherVoters = losingTeam.filter(p => p.id !== currentPlayer.id);
+        const candidates = losingTeam.map(p => p.id);
+
+        otherVoters.forEach((voter, i) => {
+            setTimeout(() => {
+                const vote = candidates[Math.floor(Math.random() * candidates.length)];
+                dispatch({ type: 'VOTE_FOR_TEAMMATE', payload: { voterId: voter.id, targetId: vote } });
+            }, (i + 1) * 400);
+        });
+
+        // FIX: Dispatch with payload containing losing team players.
+        setTimeout(() => {
+            dispatch({ type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: losingTeam } });
+        }, (otherVoters.length + 1) * 500);
     };
 
 
     const handleCreateLobby = () => {
-        updatePlayer(currentPlayer.id, { isHost: true, score: 0 });
+        updatePlayer(currentPlayer.id, { isHost: true, score: 0, teamId: null });
         dispatch({ type: 'CREATE_LOBBY', payload: { hostId: currentPlayer.id } });
         playSound('tap');
     };
@@ -489,6 +587,10 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         updatePlayer(currentPlayer.id, { customization });
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOBBY });
     };
+    
+    const handleJoinTeam = (teamId: 'blue' | 'orange' | null) => {
+        updatePlayer(currentPlayer.id, { teamId });
+    };
 
     const handleStartGame = useCallback(() => {
         playSound('gameStart');
@@ -506,7 +608,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const handleLeaveLobby = () => {
         dispatch({ type: 'RESET_LOBBY' });
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.MAIN_MENU });
-        updatePlayer(currentPlayer.id, { isHost: false, score: 0 });
+        updatePlayer(currentPlayer.id, { isHost: false, score: 0, teamId: null });
         showNotification("You left the lobby.", "👋");
     };
 
@@ -518,7 +620,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     };
     
     const handlePlayAgain = () => {
-        // Reset scores for all players in the room for the new game
         players.forEach(p => {
             updatePlayer(p.id, { score: 0, powerUps: [] });
         });
@@ -526,7 +627,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleReturnToMenu = () => {
-        updatePlayer(currentPlayer.id, { isHost: false, score: 0, powerUps: [], category: undefined });
+        updatePlayer(currentPlayer.id, { isHost: false, score: 0, powerUps: [], category: undefined, teamId: null });
         dispatch({ type: 'RETURN_TO_MENU' });
     };
 
@@ -534,7 +635,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         dispatch({ type: 'GO_BACK' });
     };
 
-    // --- CONTEXT VALUE ---
     const value = useMemo(() => ({
         ...state,
         players,
@@ -560,7 +660,9 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         setDareMode: (mode: 'AI' | 'COMMUNITY') => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
         handleDareSubmit,
         handleDareVote,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote]);
+        handleJoinTeam,
+        handleTeamMateVote,
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote]);
 
     return (
         <GameStoreContext.Provider value={value}>

@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface QuickQuizGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -27,55 +27,48 @@ const QuickQuizGame: React.FC<QuickQuizGameProps> = ({ onGameEnd, players, curre
     }
   }, [extraTime]);
 
-  const determineLosers = useCallback((isPlayerCorrect?: boolean) => {
-    // Simulate other players' answers
-    const playerResults = players.map(player => {
+  const finalizeScores = useCallback((playerScore: number) => {
+    const scores = new Map<string, number>();
+    players.forEach(player => {
         if (player.id === currentPlayerId) {
-            return { id: player.id, correct: isPlayerCorrect === true };
+            scores.set(player.id, playerScore);
+        } else {
+            // Bots have a 75% chance of getting it right
+            scores.set(player.id, Math.random() < 0.75 ? 1 : 0);
         }
-        // Bots have a 75% chance of getting it right
-        return { id: player.id, correct: Math.random() < 0.75 };
     });
-
-    const losers = playerResults.filter(p => !p.correct);
-    if (losers.length > 0) {
-        return losers.map(l => l.id);
-    }
-    // If everyone is correct, pick one random "loser" to keep game moving
-    const randomLoser = players[Math.floor(Math.random() * players.length)];
-    return [randomLoser.id];
-  }, [players, currentPlayerId]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd]);
 
   useEffect(() => {
     if (isAnswered) return;
-
-    const timerId = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    const timer = setTimeout(() => {
+      if (timeLeft > 1) {
+        setTimeLeft(timeLeft - 1);
+      } else {
+        playSound('timesUp');
+        setIsAnswered(true);
+        finalizeScores(0);
+      }
     }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [isAnswered]);
-
-  useEffect(() => {
-    if (timeLeft === 0 && !isAnswered) {
-      playSound('timesUp');
-      onGameEnd(determineLosers(false));
-    }
-  }, [timeLeft, isAnswered, onGameEnd, determineLosers]);
+    return () => clearTimeout(timer);
+  }, [timeLeft, isAnswered, finalizeScores]);
 
   const handleAnswerClick = (option: string) => {
     if (isAnswered) return;
     setIsAnswered(true);
     setSelectedAnswer(option);
     const isCorrect = option === question?.correctAnswer;
+    const score = isCorrect ? 1 : 0;
 
-    setTimeout(() => {
-      if (isCorrect) {
+    if (isCorrect) {
         playSound('correct');
-      } else {
+    } else {
         playSound('incorrect');
-      }
-      onGameEnd(determineLosers(isCorrect));
+    }
+    
+    setTimeout(() => {
+        finalizeScores(score);
     }, 1500);
   };
 

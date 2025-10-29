@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Player } from '../types';
 import PlayerAvatar from './PlayerAvatar';
-import { getAvatarById } from '../services/customizationService';
 
 interface LobbyProps {
   players: Player[];
@@ -18,35 +17,33 @@ interface LobbyProps {
   onMaxRoundsChange: (rounds: number) => void;
   dareMode: 'AI' | 'COMMUNITY';
   onDareModeChange: (mode: 'AI' | 'COMMUNITY') => void;
+  onJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
 }
 
 const Lobby: React.FC<LobbyProps> = ({ 
   players, currentPlayer, onStartGame, reactions, notificationPermission, 
   onRequestNotifications, onViewProfile, showNotification, onKickPlayer, 
-  onLeaveLobby, maxRounds, onMaxRoundsChange, dareMode, onDareModeChange
+  onLeaveLobby, maxRounds, onMaxRoundsChange, dareMode, onDareModeChange,
+  onJoinTeam
 }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [kickConfirmPlayer, setKickConfirmPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [inviteLink, setInviteLink] = useState('');
-  const [isLinkCopied, setIsLinkCopied] = useState(false);
   
-  const canStart = currentPlayer.isHost && players.length >= 2;
-  const onlineFriends = currentPlayer.friends.length; // Simplified for mock
+  const teamBlue = players.filter(p => p.teamId === 'blue');
+  const teamOrange = players.filter(p => p.teamId === 'orange');
+  const unassigned = players.filter(p => p.teamId === null);
+  
+  const canStart = currentPlayer.isHost && players.length >= 2 && teamBlue.length > 0 && teamOrange.length > 0 && unassigned.length === 0;
 
   useEffect(() => {
     if (countdown === null) return;
-
     if (countdown <= 0) {
       onStartGame();
       return;
     }
-
-    const timerId = setTimeout(() => {
-      setCountdown(countdown - 1);
-    }, 1000);
-
-    // This cleanup function will run when the component unmounts or before the effect runs again.
+    const timerId = setTimeout(() => setCountdown(countdown - 1), 1000);
     return () => clearTimeout(timerId);
   }, [countdown, onStartGame]);
 
@@ -55,29 +52,16 @@ const Lobby: React.FC<LobbyProps> = ({
       const lobbyId = Math.random().toString(36).substring(2, 9).toUpperCase();
       const newLink = `${window.location.origin}${window.location.pathname}?lobby=${lobbyId}`;
       setInviteLink(newLink);
-      setIsLinkCopied(false); // Reset copied state each time modal opens
     }
   }, [showInviteModal]);
 
-  const handleStartCountdown = () => {
-    if (canStart && countdown === null) {
-      setCountdown(5);
-    }
-  };
-
-  const handleCancelCountdown = () => {
-    setCountdown(null);
-  };
+  const handleStartCountdown = () => { if (canStart && countdown === null) setCountdown(5); };
+  const handleCancelCountdown = () => setCountdown(null);
 
   const handleCopyLink = () => {
     if (!inviteLink) return;
     navigator.clipboard.writeText(inviteLink).then(() => {
       showNotification('Invite link copied!', '📋');
-      setIsLinkCopied(true);
-      setTimeout(() => setIsLinkCopied(false), 2500); // Reset after 2.5 seconds
-    }).catch(err => {
-      console.error('Failed to copy link: ', err);
-      showNotification('Failed to copy link.', '❌');
     });
   };
   
@@ -96,92 +80,21 @@ const Lobby: React.FC<LobbyProps> = ({
     }
   };
 
-  const renderHostControls = () => {
-    if (countdown !== null) {
-        return (
-            <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-4">
-                <p className="text-4xl font-bold text-yellow-300 animate-pulse">
-                    Starting in {countdown}...
-                </p>
-                <button
-                    onClick={handleCancelCountdown}
-                    className="py-2 px-6 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-transform transform active:scale-95"
-                >
-                    Cancel
-                </button>
-            </div>
-        );
-    }
+  const renderPlayerList = (list: Player[], team?: 'blue' | 'orange') => (
+    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 rounded-lg h-full min-h-[120px] ${team === 'blue' ? 'bg-blue-900/40' : team === 'orange' ? 'bg-orange-900/40' : ''}`}>
+      {list.map((player) => {
+        const reaction = reactions.find(r => r.playerId === player.id)?.emoji;
+        return <PlayerAvatar key={player.id} player={player} isCurrentPlayer={player.id === currentPlayer.id} reaction={reaction} onClick={() => handleAvatarClick(player)} />;
+      })}
+    </div>
+  );
 
-    return (
-        <div className="w-full max-w-2xl mx-auto bg-gray-900/50 rounded-lg p-4 flex flex-col items-center gap-4">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-4">
-                <div className="flex items-center gap-3">
-                    <label htmlFor="rounds-select" className="font-bold text-lg">Rounds:</label>
-                    <select
-                      id="rounds-select"
-                      value={maxRounds}
-                      onChange={(e) => onMaxRoundsChange(Number(e.target.value))}
-                      className="bg-gray-700 border border-gray-600 rounded-md p-2 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="3">3</option>
-                      <option value="5">5</option>
-                      <option value="7">7</option>
-                    </select>
-                </div>
-                 <div className="flex items-center gap-3">
-                    <label className="font-bold text-lg">Dares:</label>
-                    <div className="flex items-center bg-gray-700 rounded-full p-1">
-                        <button 
-                            onClick={() => onDareModeChange('AI')}
-                            className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors ${dareMode === 'AI' ? 'bg-purple-600 text-white' : 'text-gray-300'}`}
-                        >
-                            🤖 AI
-                        </button>
-                        <button 
-                            onClick={() => onDareModeChange('COMMUNITY')}
-                            className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors ${dareMode === 'COMMUNITY' ? 'bg-purple-600 text-white' : 'text-gray-300'}`}
-                        >
-                            👥 Players
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <button
-              onClick={handleStartCountdown}
-              disabled={!canStart}
-              className={`w-full md:w-auto py-3 px-8 text-lg font-bold rounded-lg shadow-lg transition-all duration-300 transform
-                ${canStart 
-                  ? 'bg-green-500 hover:bg-green-600 text-white animate-pulse active:scale-95' 
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                }`}
-            >
-              {canStart ? 'Start Game!' : `Waiting for players... (${players.length}/2)`}
-            </button>
-        </div>
-    );
-  };
-
-  const renderPlayerView = () => {
-    if (countdown !== null) {
-        return (
-            <div className="text-center">
-                <p className="text-4xl font-bold text-yellow-300 animate-pulse">
-                    Starting in {countdown}...
-                </p>
-            </div>
-        );
-    }
-    return (
-        <div className="text-center">
-            <p className="text-lg md:text-xl text-yellow-400">Waiting for the host ({players.find(p => p.isHost)?.name}) to start...</p>
-            <div className="flex justify-center items-center gap-4 mt-2">
-                <p className="text-md text-gray-300">Rounds: <span className="font-bold text-white">{maxRounds}</span></p>
-                <p className="text-md text-gray-300">Dares: <span className="font-bold text-white">{dareMode === 'AI' ? '🤖 AI' : '👥 Players'}</span></p>
-            </div>
-        </div>
-    );
-  };
+  const getStartButtonText = () => {
+    if (unassigned.length > 0) return 'All players must join a team!';
+    if (teamBlue.length === 0 || teamOrange.length === 0) return 'Teams must have players!';
+    if (players.length < 2) return `Waiting for players... (${players.length}/2)`;
+    return 'Start Game!';
+  }
 
   return (
     <>
@@ -190,84 +103,63 @@ const Lobby: React.FC<LobbyProps> = ({
       </button>
       <div className="flex flex-col h-full items-center justify-between text-center p-2 md:p-4">
         <div>
-          <h1 className="text-4xl md:text-6xl font-bold text-purple-400 drop-shadow-lg mb-2">Game Lobby</h1>
-          <div className="flex justify-center items-center gap-4">
-            <p className="text-md md:text-lg text-gray-300">Waiting for players... (2-8 players)</p>
-            <button onClick={() => setShowInviteModal(true)} className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm rounded-full shadow-lg transform transition-transform active:scale-95">
-                Invite Friends ({onlineFriends})
-            </button>
-          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-purple-400 drop-shadow-lg mb-2">Team Lobby</h1>
+          <p className="text-md md:text-lg text-gray-300">Join a team to begin!</p>
         </div>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 w-full my-4 md:my-8 overflow-y-auto">
-          {players.map((player, index) => {
-              const reaction = reactions.find(r => r.playerId === player.id)?.emoji;
-              return <PlayerAvatar key={player.id} player={player} isCurrentPlayer={player.id === currentPlayer.id} reaction={reaction} onClick={() => handleAvatarClick(player)} className="animate-boing-in opacity-0" style={{ animationDelay: `${index * 75}ms` }} />;
-          })}
-          {Array.from({ length: 8 - players.length }).map((_, i) => (
-              <div key={`empty-${i}`} className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-700/50 border-2 border-dashed border-gray-600 w-full h-36">
-                  <div className="w-16 h-16 rounded-full bg-gray-600/50 mb-2 relative overflow-hidden animate-shimmer"></div>
-                  <div className="h-4 w-20 bg-gray-600/50 rounded relative overflow-hidden animate-shimmer"></div>
-              </div>
-          ))}
+        <div className="w-full flex-grow grid grid-cols-2 gap-4 my-4 overflow-y-auto">
+            {/* Team Blue */}
+            <div className="flex flex-col">
+                <h2 className="text-2xl font-bold text-blue-400 mb-2">Team Blue</h2>
+                {renderPlayerList(teamBlue, 'blue')}
+            </div>
+            {/* Team Orange */}
+            <div className="flex flex-col">
+                <h2 className="text-2xl font-bold text-orange-400 mb-2">Team Orange</h2>
+                {renderPlayerList(teamOrange, 'orange')}
+            </div>
         </div>
+
+        {unassigned.length > 0 && (
+            <div className="w-full mb-4">
+                <h3 className="text-lg font-semibold mb-2">Unassigned Players</h3>
+                {renderPlayerList(unassigned)}
+            </div>
+        )}
+
+        {currentPlayer.teamId === null && (
+          <div className="flex gap-4 mb-4">
+              <button onClick={() => onJoinTeam('blue')} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transform transition-transform active:scale-95">Join Blue</button>
+              <button onClick={() => onJoinTeam('orange')} className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg shadow-lg transform transition-transform active:scale-95">Join Orange</button>
+          </div>
+        )}
+        {currentPlayer.teamId !== null && (
+            <button onClick={() => onJoinTeam(null)} className="mb-4 px-4 py-1.5 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg text-sm">Leave Team</button>
+        )}
         
         <div className="w-full">
-          {notificationPermission === 'default' && (
-              <div className="mb-4 bg-gray-900/70 p-3 rounded-lg max-w-sm mx-auto">
-                  <p className="text-sm mb-2">Stay updated on game events!</p>
-                  <button
-                      onClick={onRequestNotifications}
-                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 text-sm rounded transform transition-transform active:scale-95"
-                  >
-                      Enable Notifications
+          {currentPlayer.isHost ? (
+            countdown !== null ? (
+              <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-4">
+                  <p className="text-4xl font-bold text-yellow-300 animate-pulse">Starting in {countdown}...</p>
+                  <button onClick={handleCancelCountdown} className="py-2 px-6 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Cancel</button>
+              </div>
+            ) : (
+               <div className="w-full max-w-2xl mx-auto bg-gray-900/50 rounded-lg p-4 flex flex-col items-center gap-4">
+                  <button onClick={handleStartCountdown} disabled={!canStart} className={`w-full md:w-auto py-3 px-8 text-lg font-bold rounded-lg shadow-lg transition-all duration-300 transform ${canStart ? 'bg-green-500 hover:bg-green-600 text-white animate-pulse' : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}>
+                      {getStartButtonText()}
                   </button>
               </div>
+            )
+          ) : (
+            countdown !== null ? (
+                <p className="text-4xl font-bold text-yellow-300 animate-pulse">Starting in {countdown}...</p>
+            ) : (
+                <p className="text-lg md:text-xl text-yellow-400">Waiting for the host ({players.find(p => p.isHost)?.name}) to start...</p>
+            )
           )}
-          {currentPlayer.isHost ? renderHostControls() : renderPlayerView()}
         </div>
       </div>
-
-      {showInviteModal && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowInviteModal(false)}>
-            <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl border border-purple-500/50 animate-pop-in" onClick={e => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-purple-400 mb-2">Invite Friends</h2>
-                <p className="text-gray-400 mb-4">Share this link to invite friends to your lobby!</p>
-                <div className="flex items-center bg-gray-900 rounded-lg p-2 border border-gray-700">
-                    <input
-                        type="text"
-                        readOnly
-                        value={inviteLink}
-                        className="bg-transparent text-gray-300 flex-grow focus:outline-none select-all"
-                        onFocus={(e) => e.target.select()}
-                    />
-                    <button
-                        onClick={handleCopyLink}
-                        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors transform active:scale-95 ${
-                            isLinkCopied
-                            ? 'bg-green-600 text-white'
-                            : 'bg-purple-600 hover:bg-purple-500 text-white'
-                        }`}
-                    >
-                        {isLinkCopied ? 'Copied!' : 'Copy'}
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {kickConfirmPlayer && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in" onClick={() => setKickConfirmPlayer(null)}>
-            <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl border border-red-500/50 animate-pop-in" onClick={e => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-red-400 mb-4">Kick Player?</h2>
-                <p className="text-gray-300 mb-6">Are you sure you want to remove <span className="font-bold">{kickConfirmPlayer.name}</span> from the lobby?</p>
-                <div className="flex justify-center gap-4">
-                    <button onClick={() => setKickConfirmPlayer(null)} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold transition-transform transform active:scale-95">Cancel</button>
-                    <button onClick={confirmKick} className="px-6 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold transition-transform transform active:scale-95">Kick</button>
-                </div>
-            </div>
-        </div>
-      )}
     </>
   );
 };

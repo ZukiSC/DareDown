@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Challenge, Player, QuizQuestion } from '../types';
+import { Challenge, Player, QuizQuestion, MiniGameType } from '../types';
 import QuickQuizGame from './games/QuickQuizGame';
 import TapSpeedGame from './games/TapSpeedGame';
 import NumberRaceGame from './games/NumberRaceGame';
@@ -13,7 +13,7 @@ interface GameScreenProps {
   challenge: Challenge | null;
   players: Player[];
   currentPlayerId: string;
-  onMiniGameEnd: (loserIds: string[]) => void;
+  onMiniGameEnd: (scores: Map<string, number>, challengeType: MiniGameType) => void;
   round: number;
   reactions: { playerId: string, emoji: string }[];
   extraTime: number;
@@ -106,7 +106,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlay
       </div>
       <div className="flex-grow bg-black/30 rounded-lg p-4 relative">
         <GameComponent 
-            onGameEnd={onMiniGameEnd} 
+            onGameEnd={(scores) => onMiniGameEnd(scores, challenge.type)}
             players={players} 
             currentPlayerId={currentPlayerId} 
             challenge={challenge}

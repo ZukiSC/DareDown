@@ -3,7 +3,7 @@ import { Player, Challenge } from '../../types';
 import { playSound } from '../../services/audioService';
 
 interface RhythmRushGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -22,19 +22,18 @@ const RhythmRushGame: React.FC<RhythmRushGameProps> = ({ onGameEnd, players, cur
   const [activeArrow, setActiveArrow] = useState<number | null>(null);
   const playerLevel = useRef(0);
 
-  const determineLosers = useCallback((playerFinalLevel: number) => {
-    const scores = players.map(p => {
+  const finalizeScores = useCallback((playerFinalLevel: number) => {
+    const scores = new Map<string, number>();
+    players.forEach(p => {
         if (p.id === currentPlayerId) {
-            return { id: p.id, score: playerFinalLevel };
+            scores.set(p.id, playerFinalLevel);
+        } else {
+            // Bots can reach between level 2 and 8
+            scores.set(p.id, Math.floor(Math.random() * 7) + 2);
         }
-        // Bots can reach between level 2 and 8
-        return { id: p.id, score: Math.floor(Math.random() * 7) + 2 };
     });
-
-    const minScore = Math.min(...scores.map(s => s.score));
-    const losers = scores.filter(s => s.score === minScore);
-    return losers.map(l => l.id);
-  }, [players, currentPlayerId]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd]);
 
   const nextRound = useCallback(() => {
     setPhase('WATCHING');
@@ -71,7 +70,7 @@ const RhythmRushGame: React.FC<RhythmRushGameProps> = ({ onGameEnd, players, cur
       // Incorrect press
       setPhase('FAILED');
       playSound('incorrect');
-      setTimeout(() => onGameEnd(determineLosers(playerLevel.current)), 1500);
+      setTimeout(() => finalizeScores(playerLevel.current), 1500);
       return;
     }
 

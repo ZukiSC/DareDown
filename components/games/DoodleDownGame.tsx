@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface DoodleDownGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -19,8 +19,10 @@ const DoodleDownGame: React.FC<DoodleDownGameProps> = ({ onGameEnd, players, cur
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#FFFFFF');
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const [isFinished, setIsFinished] = useState(false);
   const extraTimeApplied = useRef(false);
   const pixelChangeCount = useRef(0);
+  const lastPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (extraTime > 0 && !extraTimeApplied.current) {
@@ -44,47 +46,34 @@ const DoodleDownGame: React.FC<DoodleDownGameProps> = ({ onGameEnd, players, cur
       y: (clientY - rect.top) * (canvas.height / rect.height)
     };
   };
-
-  const draw = useCallback((x0: number, y0: number, x1: number, y1: number, drawColor: string) => {
-    const ctx = getCanvasContext();
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.strokeStyle = drawColor;
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.closePath();
-    pixelChangeCount.current += Math.hypot(x1 - x0, y1 - y0); // Approximation
-  }, [getCanvasContext]);
-
+  
   const startDrawing = useCallback((event: React.MouseEvent | React.TouchEvent) => {
     const { x, y } = getRelativeCoords(event.nativeEvent);
-    const ctx = getCanvasContext();
-    if (ctx) {
-        ctx.moveTo(x, y);
-    }
+    lastPos.current = { x, y };
     setIsDrawing(true);
-  }, [getCanvasContext]);
+  }, []);
 
   const stopDrawing = useCallback(() => {
     setIsDrawing(false);
-    const ctx = getCanvasContext();
-     if (ctx) {
-        ctx.beginPath();
-    }
-  }, [getCanvasContext]);
+  }, []);
   
   const handleDrawing = useCallback((event: React.MouseEvent | React.TouchEvent) => {
       if (!isDrawing) return;
       const { x, y } = getRelativeCoords(event.nativeEvent);
       const ctx = getCanvasContext();
       if(ctx) {
-         draw(ctx.canvas.width / 2, ctx.canvas.height / 2, x, y, color);
-         ctx.moveTo(x,y); // This seems to be missing in many tutorials but is important
+        ctx.beginPath();
+        ctx.moveTo(lastPos.current.x, lastPos.current.y);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.closePath();
+        pixelChangeCount.current += Math.hypot(x - lastPos.current.x, y - lastPos.current.y);
+        lastPos.current = { x, y };
       }
-  }, [isDrawing, draw, color, getCanvasContext]);
+  }, [isDrawing, color, getCanvasContext]);
 
   const handleMouseMove = (event: React.MouseEvent) => handleDrawing(event);
   const handleTouchMove = (event: React.TouchEvent) => handleDrawing(event);
@@ -97,34 +86,32 @@ const DoodleDownGame: React.FC<DoodleDownGameProps> = ({ onGameEnd, players, cur
     }
   };
   
-  const determineLosers = useCallback((playerDrawScore: number) => {
-    const scores = players.map(p => {
+  const finalizeScores = useCallback((playerDrawScore: number) => {
+    const scores = new Map<string, number>();
+    players.forEach(p => {
         if (p.id === currentPlayerId) {
-            return { id: p.id, score: playerDrawScore };
+            scores.set(p.id, playerDrawScore);
+        } else {
+            // Bots have a score between 1000 and 15000
+            scores.set(p.id, Math.random() * 14000 + 1000);
         }
-        // Bots have a score between 1000 and 15000
-        return { id: p.id, score: Math.random() * 14000 + 1000 };
     });
-    
-    const minScore = Math.min(...scores.map(s => s.score));
-    const losers = scores.filter(s => s.score === minScore);
-    return losers.map(l => l.id);
-  }, [players, currentPlayerId]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd]);
 
   useEffect(() => {
-    const timerId = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    if (isFinished) return;
+    const timerId = setTimeout(() => {
+        if (timeLeft > 1) {
+            setTimeLeft(timeLeft - 1);
+        } else {
+            setIsFinished(true);
+            playSound('timesUp');
+            finalizeScores(pixelChangeCount.current);
+        }
     }, 1000);
-
-    return () => clearInterval(timerId);
-  }, []);
-  
-  useEffect(() => {
-    if (timeLeft === 0) {
-      playSound('timesUp');
-      onGameEnd(determineLosers(pixelChangeCount.current));
-    }
-  }, [timeLeft, onGameEnd, determineLosers]);
+    return () => clearTimeout(timerId);
+  }, [timeLeft, isFinished, finalizeScores]);
 
   return (
     <div className="flex flex-col items-center justify-between h-full text-center">

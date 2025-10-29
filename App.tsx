@@ -22,6 +22,7 @@ import DareSubmissionScreen from './components/DareSubmissionScreen';
 import DareVotingScreen from './components/DareVotingScreen';
 import DareProofScreen from './components/DareProofScreen';
 import GameEndScreen from './components/GameEndScreen';
+import TeamDareVoteScreen from './components/TeamDareVoteScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -34,7 +35,7 @@ const AppContent = () => {
     const {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
-        dareMode, submittedDares, winningDareId
+        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes
     } = useGameStore();
 
     const {
@@ -52,7 +53,7 @@ const AppContent = () => {
         handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleStreamEnd,
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
-        handleReturnToMenu, handleGoBack
+        handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote
     } = useGameStore();
 
     const {
@@ -122,11 +123,14 @@ const AppContent = () => {
                         onMaxRoundsChange={setMaxRounds}
                         dareMode={dareMode}
                         onDareModeChange={setDareMode}
+                        onJoinTeam={handleJoinTeam}
                     />;
                 case GameState.MINIGAME:
                     return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} reactions={activeReactions} extraTime={extraTime} onViewProfile={handleViewProfile} />;
                 case GameState.SUDDEN_DEATH:
                     return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} onViewProfile={handleViewProfile}/>;
+                case GameState.TEAM_DARE_VOTE:
+                    return <TeamDareVoteScreen players={players} currentPlayer={currentPlayer} losingTeamId={losingTeamId} teamVotes={teamVotes} onVote={handleTeamMateVote} />
                 case GameState.DARE_SUBMISSION:
                     return <DareSubmissionScreen loser={roundLoser} currentPlayer={currentPlayer} players={players} onSubmit={handleDareSubmit} />;
                 case GameState.DARE_VOTING:

@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface MemoryMatchGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -39,39 +39,33 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
     }
   }, [extraTime]);
   
-  const determineLosers = useCallback((playerMoves: number) => {
-     const results = players.map(p => {
+  const finalizeScores = useCallback((playerMoves: number) => {
+    const scores = new Map<string, number>();
+     players.forEach(p => {
         if (p.id === currentPlayerId) {
-            return { id: p.id, score: playerMoves };
+            scores.set(p.id, playerMoves);
+        } else {
+            // Bots take between pairCount * 2 and pairCount * 4 moves
+            const botMoves = Math.floor(Math.random() * (pairCount * 2)) + (pairCount * 2);
+            scores.set(p.id, botMoves);
         }
-        // Bots take between pairCount * 2 and pairCount * 4 moves
-        const botMoves = Math.floor(Math.random() * (pairCount * 2)) + (pairCount * 2);
-        return { id: p.id, score: botMoves };
     });
-    
-    const maxScore = Math.max(...results.map(r => r.score));
-    const losers = results.filter(r => r.score === maxScore);
-    return losers.map(l => l.id);
-
-  }, [players, currentPlayerId, pairCount]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd, pairCount]);
 
   useEffect(() => {
     if (isFinished) return;
-
-    const timerId = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    const timerId = setTimeout(() => {
+        if (timeLeft > 1) {
+            setTimeLeft(timeLeft - 1);
+        } else {
+            setIsFinished(true);
+            playSound('timesUp');
+            finalizeScores(moves + 10); // Penalty for not finishing
+        }
     }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [isFinished]);
-
-  useEffect(() => {
-    if (timeLeft === 0 && !isFinished) {
-      playSound('timesUp');
-      onGameEnd(determineLosers(moves + 10)); // Penalty for not finishing
-      setIsFinished(true);
-    }
-  }, [timeLeft, isFinished, onGameEnd, determineLosers, moves]);
+    return () => clearTimeout(timerId);
+  }, [timeLeft, isFinished, finalizeScores, moves]);
 
 
   useEffect(() => {
@@ -79,11 +73,13 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
       const [firstIndex, secondIndex] = flippedIndices;
       if (cards[firstIndex].emoji === cards[secondIndex].emoji) {
         playSound('correct');
-        setCards(prev => prev.map((card, index) => (index === firstIndex || index === secondIndex ? { ...card, isMatched: true } : card)));
-        const allMatched = cards.every(c => c.isMatched || c.id === cards[firstIndex].id || c.id === cards[secondIndex].id);
+        const newCards = cards.map((card, index) => (index === firstIndex || index === secondIndex ? { ...card, isMatched: true } : card));
+        setCards(newCards);
+
+        const allMatched = newCards.every(c => c.isMatched);
         if(allMatched) {
             setIsFinished(true);
-            onGameEnd(determineLosers(moves));
+            finalizeScores(moves);
         }
       } else {
         setTimeout(() => {
@@ -92,7 +88,7 @@ const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({ onGameEnd, players, c
       }
       setTimeout(() => setFlippedIndices([]), 1000);
     }
-  }, [flippedIndices, cards, onGameEnd, moves, determineLosers]);
+  }, [flippedIndices, cards, finalizeScores, moves]);
 
   const handleCardClick = (index: number) => {
     if (isFinished || flippedIndices.length === 2 || cards[index].isFlipped) return;

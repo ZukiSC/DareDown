@@ -16,6 +16,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, onUsePowerUp, curren
   const hasSwapCategory = currentPlayer.powerUps.includes('SWAP_CATEGORY');
   const showReplayButton = currentDare?.status === 'completed' && currentDare.replayUrl;
 
+  const getTeamColor = (teamId: 'blue' | 'orange' | null) => {
+    if (teamId === 'blue') return 'text-blue-400';
+    if (teamId === 'orange') return 'text-orange-400';
+    return '';
+  }
+
   return (
     <div className="flex flex-col items-center h-full p-4 relative">
       <h1 className="text-4xl md:text-5xl font-bold text-purple-400 mb-6">
@@ -35,7 +41,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, onUsePowerUp, curren
           >
             <div className="flex items-center">
               <span className="text-2xl font-bold w-10">{index + 1}</span>
-              <p className="text-xl font-semibold">{player.name}</p>
+              <p className={`text-xl font-semibold ${getTeamColor(player.teamId)}`}>{player.name}</p>
             </div>
             <p className="text-xl font-bold text-purple-300">{player.score} pts</p>
           </div>

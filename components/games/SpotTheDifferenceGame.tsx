@@ -10,7 +10,7 @@ interface Difference {
 }
 
 interface SpotTheDifferenceGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -22,6 +22,7 @@ const GAME_DURATION = 30;
 const SpotTheDifferenceGame: React.FC<SpotTheDifferenceGameProps> = ({ onGameEnd, players, currentPlayerId, challenge, extraTime }) => {
   const [foundIndices, setFoundIndices] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const [isFinished, setIsFinished] = useState(false);
   const extraTimeApplied = useRef(false);
   
   const { imageA, imageB, differences } = challenge.content as { imageA: string; imageB: string; differences: Difference[] };
@@ -34,35 +35,35 @@ const SpotTheDifferenceGame: React.FC<SpotTheDifferenceGameProps> = ({ onGameEnd
     }
   }, [extraTime]);
 
-  const determineLosers = useCallback((playerFoundCount: number) => {
-    const scores = players.map(p => {
+  const finalizeScores = useCallback((playerFoundCount: number) => {
+    const scores = new Map<string, number>();
+    players.forEach(p => {
         if (p.id === currentPlayerId) {
-            return { id: p.id, score: playerFoundCount };
+            scores.set(p.id, playerFoundCount);
+        } else {
+            // Bots find between 1 and 4 differences
+            scores.set(p.id, Math.floor(Math.random() * 4) + 1);
         }
-        // Bots find between 1 and 4 differences
-        return { id: p.id, score: Math.floor(Math.random() * 4) + 1 };
     });
-
-    const minScore = Math.min(...scores.map(s => s.score));
-    const losers = scores.filter(s => s.score === minScore);
-    return losers.map(l => l.id);
-  }, [players, currentPlayerId]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd]);
   
   useEffect(() => {
-    const timerId = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    if (isFinished) return;
+    const timerId = setTimeout(() => {
+        if (timeLeft > 1) {
+            setTimeLeft(timeLeft - 1);
+        } else {
+            setIsFinished(true);
+            playSound('timesUp');
+            finalizeScores(foundIndices.length);
+        }
     }, 1000);
-    return () => clearInterval(timerId);
-  }, []);
-
-  useEffect(() => {
-    if (timeLeft === 0) {
-      playSound('timesUp');
-      onGameEnd(determineLosers(foundIndices.length));
-    }
-  }, [timeLeft, onGameEnd, determineLosers, foundIndices.length]);
+    return () => clearTimeout(timerId);
+  }, [timeLeft, isFinished, finalizeScores, foundIndices.length]);
 
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if(isFinished) return;
     const container = imageContainerRef.current;
     if (!container) return;
     
@@ -84,7 +85,8 @@ const SpotTheDifferenceGame: React.FC<SpotTheDifferenceGameProps> = ({ onGameEnd
         const newFound = [...foundIndices, index];
         setFoundIndices(newFound);
         if(newFound.length === differences.length) {
-            onGameEnd(determineLosers(newFound.length));
+            setIsFinished(true);
+            finalizeScores(newFound.length);
         }
       }
     });

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization } from '../types';
 
 // --- MOCK DATA ---
-const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category'>[] = Array.from({ length: 15 }, (_, i) => ({
+const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'>[] = Array.from({ length: 15 }, (_, i) => ({
     id: `p${i + 1}`,
     name: `Player ${i + 1}`,
     customization: { avatarId: `avatar_${(i % 10) + 1}`, colorId: `color_${(i % 8) + 1}`, badgeId: null },
@@ -14,9 +14,8 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     isOnline: Math.random() > 0.3,
 }));
 
-const initialPlayer: Player = {
+const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'> & { friends: string[], friendRequests: FriendRequest[] } = {
     ...MOCK_ALL_PLAYERS_DATA[0],
-    score: 0, isHost: false, powerUps: ['SKIP_DARE'],
     friends: ['p3', 'p5'],
     friendRequests: [{ fromId: 'p8', fromName: 'Player 8', fromCustomization: MOCK_ALL_PLAYERS_DATA[7].customization, status: 'pending' as const }],
 };
@@ -34,7 +33,7 @@ interface SocialStoreState {
 }
 
 const initialState: SocialStoreState = {
-  allPlayers: MOCK_ALL_PLAYERS_DATA.map(p => ({ ...p, score: 0, isHost: false, powerUps: [], category: undefined })),
+  allPlayers: MOCK_ALL_PLAYERS_DATA.map(p => ({ ...p, score: 0, isHost: false, powerUps: [], category: undefined, teamId: null })),
   currentPlayerId: 'p1',
   chatMessages: [],
   privateChats: {},

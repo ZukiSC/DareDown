@@ -4,7 +4,7 @@ import { playSound } from '../../services/audioService';
 import GameTimer from './GameTimer';
 
 interface NumberRaceGameProps {
-  onGameEnd: (loserIds: string[]) => void;
+  onGameEnd: (scores: Map<string, number>) => void;
   players: Player[];
   currentPlayerId: string;
   challenge: Challenge;
@@ -48,41 +48,32 @@ const NumberRaceGame: React.FC<NumberRaceGameProps> = ({ onGameEnd, players, cur
     setShuffledNumbers(numbers);
   }, []);
 
-  const determineLosers = useCallback((playerFinished: boolean) => {
-    // Simulate bot players' performance
-    const results = players.map(p => {
+  const finalizeScores = useCallback((playerFinished: boolean) => {
+    const scores = new Map<string, number>();
+    players.forEach(p => {
         if (p.id === currentPlayerId) {
-            return { id: p.id, finished: playerFinished };
+            scores.set(p.id, playerFinished ? 1 : 0);
+        } else {
+            // 80% chance for a bot to finish
+            scores.set(p.id, Math.random() < 0.8 ? 1 : 0);
         }
-        // 80% chance for a bot to finish
-        return { id: p.id, finished: Math.random() < 0.8 };
     });
-    const losers = results.filter(r => !r.finished);
-    if (losers.length > 0) {
-        return losers.map(l => l.id);
-    }
-    // If everyone finishes, pick a random "loser"
-    return [players[Math.floor(Math.random() * players.length)].id];
-
-  }, [players, currentPlayerId]);
+    onGameEnd(scores);
+  }, [players, currentPlayerId, onGameEnd]);
 
   useEffect(() => {
     if (isFinished) return;
-
-    const timerId = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    const timerId = setTimeout(() => {
+        if (timeLeft > 1) {
+            setTimeLeft(timeLeft - 1);
+        } else {
+            setIsFinished(true);
+            playSound('timesUp');
+            finalizeScores(false);
+        }
     }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [isFinished]);
-
-  useEffect(() => {
-    if (timeLeft === 0 && !isFinished) {
-      playSound('timesUp');
-      onGameEnd(determineLosers(false));
-      setIsFinished(true);
-    }
-  }, [timeLeft, isFinished, onGameEnd, determineLosers]);
+    return () => clearTimeout(timerId);
+  }, [timeLeft, isFinished, finalizeScores]);
 
 
   const handleNumberClick = (num: number) => {
@@ -92,7 +83,7 @@ const NumberRaceGame: React.FC<NumberRaceGameProps> = ({ onGameEnd, players, cur
       if (num === MAX_NUMBER) {
         playSound('correct');
         setIsFinished(true);
-        onGameEnd(determineLosers(true));
+        finalizeScores(true);
       } else {
         setCurrentNumber(prev => prev + 1);
       }

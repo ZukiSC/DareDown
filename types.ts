@@ -41,6 +41,7 @@ export interface Player {
   name: string;
   score: number;
   isHost: boolean;
+  teamId: 'blue' | 'orange' | null;
   category?: Category;
   customization: PlayerCustomization;
   unlocks: string[];
@@ -71,6 +72,7 @@ export enum GameState {
   LOBBY = 'LOBBY',
   MINIGAME = 'MINIGAME',
   SUDDEN_DEATH = 'SUDDEN_DEATH',
+  TEAM_DARE_VOTE = 'TEAM_DARE_VOTE',
   DARE_SUBMISSION = 'DARE_SUBMISSION',
   DARE_VOTING = 'DARE_VOTING',
   DARE_SCREEN = 'DARE_SCREEN',
