@@ -56,6 +56,11 @@ export interface Player {
   level: number;
   xp: number;
   xpToNextLevel: number;
+  // Dare Pass
+  darePassTier: number;
+  darePassStars: number;
+  hasPremiumPass: boolean;
+  darePassChallenges: DarePassChallenge[];
 }
 
 export interface Dare {
@@ -74,6 +79,7 @@ export enum GameState {
   PUBLIC_LOBBIES = 'PUBLIC_LOBBIES',
   HALL_OF_FAME = 'HALL_OF_FAME',
   COMMUNITY_DARES = 'COMMUNITY_DARES',
+  DARE_PASS = 'DARE_PASS',
   CATEGORY_SELECTION = 'CATEGORY_SELECTION',
   CUSTOMIZATION = 'CUSTOMIZATION',
   LOBBY = 'LOBBY',
@@ -198,4 +204,21 @@ export interface DarePack {
   dares: string[];
   votes: number;
   isOfficial?: boolean;
+}
+
+// --- DARE PASS TYPES ---
+export interface DarePassReward {
+  tier: number;
+  isPremium: boolean;
+  unlockId: string; // Corresponds to an unlockId in customizationService
+}
+
+export interface DarePassChallenge {
+  id: string;
+  type: 'play_minigame' | 'win_game';
+  description: string;
+  progress: number;
+  goal: number;
+  stars: number;
+  isClaimed: boolean;
 }

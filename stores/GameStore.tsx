@@ -283,6 +283,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             case GameState.PUBLIC_LOBBIES:
             case GameState.HALL_OF_FAME:
             case GameState.COMMUNITY_DARES:
+            case GameState.DARE_PASS:
                 return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CATEGORY_SELECTION:
                 return { ...state, gameState: GameState.MAIN_MENU };
@@ -390,6 +391,7 @@ interface GameStoreContextType extends GameStoreState {
   handleViewHallOfFame: () => void;
   handleVoteHallOfFame: (dareId: string) => void;
   handleViewCommunityDares: () => void;
+  handleViewDarePass: () => void;
   handleSubscribeDarePack: (packId: string) => void;
   handleVoteDarePack: (packId: string) => void;
   handleCreateDarePack: (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => void;
@@ -423,7 +425,7 @@ const generateMockLobbies = (allPlayers: Player[], count: number): PublicLobby[]
 
 export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
-    const { currentPlayer, allPlayers, updatePlayer, addXp } = useSocialStore();
+    const { currentPlayer, allPlayers, updatePlayer, addXp, updateChallengeProgress } = useSocialStore();
     const { setLoading, showNotification, showUnlock, setViewingReplay } = useUIStore();
 
     // --- SELECTORS / DERIVED STATE ---
@@ -458,6 +460,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         if(winner) {
             addXp(winner.id, XP_REWARDS.GAME_WON);
             dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: winner.id, reason: 'Game Won!', amount: XP_REWARDS.GAME_WON } });
+            updateChallengeProgress(winner.id, 'win_game', 1);
         }
 
         const gameHistoryEntry: GameHistoryEntry = {
@@ -488,7 +491,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }
         
         dispatch({ type: 'END_GAME' });
-    }, [players, state.currentDare, updatePlayer, showUnlock, addXp]);
+    }, [players, state.currentDare, updatePlayer, showUnlock, addXp, updateChallengeProgress]);
 
     const handleNextRound = useCallback(() => {
         const potentialRecipients = players.filter(p => p.id !== state.roundLoserId);
@@ -547,6 +550,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         players.forEach(p => {
             addXp(p.id, XP_REWARDS.GAME_PLAYED);
             dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: p.id, reason: 'Played a round', amount: XP_REWARDS.GAME_PLAYED } });
+            updateChallengeProgress(p.id, 'play_minigame', 1);
         });
 
         const teamScores = { blue: { totalScore: 0, playerCount: 0 }, orange: { totalScore: 0, playerCount: 0 } };
@@ -587,7 +591,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         } else {
             handleNextRound();
         }
-    }, [players, handleNextRound, addXp]);
+    }, [players, handleNextRound, addXp, updateChallengeProgress]);
 
     const handleSuddenDeathEnd = (loserId: string) => {
         const loserPlayer = players.find(p => p.id === loserId);
@@ -850,6 +854,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleViewCommunityDares = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMMUNITY_DARES });
+    const handleViewDarePass = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_PASS });
     const handleSubscribeDarePack = (packId: string) => dispatch({ type: 'SUBSCRIBE_DARE_PACK', payload: packId });
     const handleVoteDarePack = (packId: string) => dispatch({ type: 'VOTE_DARE_PACK', payload: packId });
     const handleCreateDarePack = (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => {
@@ -896,6 +901,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleViewHallOfFame,
         handleVoteHallOfFame,
         handleViewCommunityDares,
+        handleViewDarePass,
         handleSubscribeDarePack,
         handleVoteDarePack,
         handleCreateDarePack,

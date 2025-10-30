@@ -16,6 +16,9 @@ const AVATARS: Avatar[] = [
     { id: 'avatar_11', emoji: '🤖', name: 'Cyborg', unlockId: 'level_2' },
     { id: 'avatar_12', emoji: '🧛', name: 'Vampire', unlockId: 'level_5' },
     { id: 'avatar_13', emoji: '✨', name: 'Celestial', unlockId: 'level_10' },
+    // Dare Pass Avatars
+    { id: 'avatar_dp1', emoji: '🏴‍☠️', name: 'Pirate', unlockId: 'darepass_s1_t5' },
+    { id: 'avatar_dp2', emoji: '🐲', name: 'Dragon', unlockId: 'darepass_s1_t15' },
 
 ];
 
@@ -32,6 +35,9 @@ const COLORS: ColorTheme[] = [
     // Unlockable Colors
     { id: 'color_9', name: 'Cyan', primaryClass: 'bg-cyan-500', secondaryClass: 'border-cyan-300', unlockId: 'level_3' },
     { id: 'color_10', name: 'Lime', primaryClass: 'bg-lime-500', secondaryClass: 'border-lime-300', unlockId: 'level_7' },
+    // Dare Pass Colors
+    { id: 'color_dp1', name: 'Gold', primaryClass: 'bg-yellow-400', secondaryClass: 'border-yellow-200', unlockId: 'darepass_s1_t8' },
+    { id: 'color_dp2', name: 'Emerald', primaryClass: 'bg-emerald-500', secondaryClass: 'border-emerald-300', unlockId: 'darepass_s1_t12' },
 ];
 
 // --- BADGES (all are unlockable) ---
@@ -56,6 +62,13 @@ const BADGES: Badge[] = [
         name: 'Veteran',
         description: 'Awarded for reaching level 4.',
         unlockId: 'level_4',
+    },
+    {
+        id: 'badge_darepass_s1',
+        emoji: '🌟',
+        name: 'Season 1 Star',
+        description: 'Awarded for completing Tier 1 of the Season 1 Dare Pass.',
+        unlockId: 'darepass_s1_t1',
     }
 ];
 
@@ -68,3 +81,6 @@ export const getAllBadges = (): Badge[] => BADGES;
 export const getAvatarById = (id: string): Avatar | undefined => AVATARS.find(a => a.id === id);
 export const getColorById = (id: string): ColorTheme | undefined => COLORS.find(c => c.id === id);
 export const getBadgeById = (id: string): Badge | undefined => BADGES.find(b => b.id === id);
+export const getItemByUnlockId = (unlockId: string): Avatar | ColorTheme | Badge | undefined => {
+    return [...AVATARS, ...COLORS, ...BADGES].find(item => item.unlockId === unlockId);
+}

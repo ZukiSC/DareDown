@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, PropsWithChildren } from 'react';
-import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme } from '../types';
+import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme, DarePassChallenge } from '../types';
 import { calculateLevelInfo, calculateXpForLevel, getRewardForLevel } from '../services/levelingService';
+import { getInitialChallenges, STARS_PER_TIER, CURRENT_SEASON_REWARDS } from '../services/darePassService';
 
 // --- MOCK DATA ---
 const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'>[] = Array.from({ length: 15 }, (_, i) => ({
@@ -16,12 +17,17 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     level: 1,
     xp: 0,
     xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
+    darePassTier: 1,
+    darePassStars: 0,
+    hasPremiumPass: false,
+    darePassChallenges: getInitialChallenges(),
 }));
 
 const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'> & { friends: string[], friendRequests: FriendRequest[] } = {
     ...MOCK_ALL_PLAYERS_DATA[0],
     friends: ['p3', 'p5'],
     friendRequests: [{ fromId: 'p8', fromName: 'Player 8', fromCustomization: MOCK_ALL_PLAYERS_DATA[7].customization, status: 'pending' as const }],
+    hasPremiumPass: true, // Main player has premium for testing
 };
 MOCK_ALL_PLAYERS_DATA[0] = initialPlayer;
 MOCK_ALL_PLAYERS_DATA[2].friends.push('p1');
@@ -121,6 +127,11 @@ interface SocialStoreContextType extends SocialStoreState {
   addPlayer: (player: Player) => void;
   removePlayer: (playerId: string) => void;
   addXp: (playerId: string, amount: number) => Promise<{ leveledUp: boolean; newLevel?: number; reward?: Avatar | ColorTheme | Badge } | null>;
+  // Dare Pass
+  updateChallengeProgress: (playerId: string, type: 'play_minigame' | 'win_game', amount: number) => void;
+  claimChallengeReward: (playerId: string, challengeId: string) => void;
+  purchasePremiumPass: (playerId: string) => void;
+  // Social
   handleSendFriendRequest: (targetId: string) => boolean;
   handleAcceptFriendRequest: (fromId: string) => string | null;
   handleDeclineFriendRequest: (fromId: string) => void;
@@ -179,9 +190,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         const oldLevel = player.level;
         const { level: newLevel, xp: newXp, xpToNextLevel: newXpToNextLevel } = calculateLevelInfo(newTotalXp);
 
-        let rewardPayload: { item: Avatar | ColorTheme | Badge, unlockId: string } | null = null;
         let newUnlocks = player.unlocks;
-
         let finalReward: Avatar | ColorTheme | Badge | undefined;
 
         if (newLevel > oldLevel) {
@@ -206,6 +215,72 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         }
         
         return { leveledUp: false };
+    }, [state.allPlayers, updatePlayer]);
+
+    const updateChallengeProgress = useCallback((playerId: string, type: 'play_minigame' | 'win_game', amount: number) => {
+        const player = state.allPlayers.find(p => p.id === playerId);
+        if (!player) return;
+
+        const updatedChallenges = player.darePassChallenges.map(challenge => {
+            if (challenge.type === type && !challenge.isClaimed) {
+                return { ...challenge, progress: Math.min(challenge.goal, challenge.progress + amount) };
+            }
+            return challenge;
+        });
+        updatePlayer(playerId, { darePassChallenges: updatedChallenges });
+    }, [state.allPlayers, updatePlayer]);
+
+    const claimChallengeReward = useCallback((playerId: string, challengeId: string) => {
+        const player = state.allPlayers.find(p => p.id === playerId);
+        if (!player) return;
+
+        const challenge = player.darePassChallenges.find(c => c.id === challengeId);
+        if (!challenge || challenge.isClaimed || challenge.progress < challenge.goal) return;
+
+        let currentStars = player.darePassStars + challenge.stars;
+        let currentTier = player.darePassTier;
+        let newUnlocks = [...player.unlocks];
+
+        while (currentStars >= STARS_PER_TIER) {
+            currentTier += 1;
+            currentStars -= STARS_PER_TIER;
+
+            const rewardsForTier = CURRENT_SEASON_REWARDS.filter(r => r.tier === currentTier);
+            for (const reward of rewardsForTier) {
+                const canUnlock = !reward.isPremium || (reward.isPremium && player.hasPremiumPass);
+                if (canUnlock && !newUnlocks.includes(reward.unlockId)) {
+                    newUnlocks.push(reward.unlockId);
+                }
+            }
+        }
+        
+        const updatedChallenges = player.darePassChallenges.map(c => c.id === challengeId ? { ...c, isClaimed: true } : c);
+
+        updatePlayer(playerId, {
+            darePassTier: currentTier,
+            darePassStars: currentStars,
+            darePassChallenges: updatedChallenges,
+            unlocks: newUnlocks,
+        });
+
+    }, [state.allPlayers, updatePlayer]);
+
+    const purchasePremiumPass = useCallback((playerId: string) => {
+        const player = state.allPlayers.find(p => p.id === playerId);
+        if (!player || player.hasPremiumPass) return;
+        
+        let newUnlocks = [...player.unlocks];
+        for (let i = 1; i <= player.darePassTier; i++) {
+            const premiumReward = CURRENT_SEASON_REWARDS.find(r => r.tier === i && r.isPremium);
+            if (premiumReward && !newUnlocks.includes(premiumReward.unlockId)) {
+                newUnlocks.push(premiumReward.unlockId);
+            }
+        }
+
+        updatePlayer(playerId, {
+            hasPremiumPass: true,
+            unlocks: newUnlocks,
+        });
     }, [state.allPlayers, updatePlayer]);
     
     const handleSendFriendRequest = (targetId: string): boolean => {
@@ -283,6 +358,9 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         addPlayer,
         removePlayer,
         addXp,
+        updateChallengeProgress,
+        claimChallengeReward,
+        purchasePremiumPass,
         handleSendFriendRequest,
         handleAcceptFriendRequest,
         handleDeclineFriendRequest,
@@ -291,7 +369,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         handleOpenPrivateChat,
         handleClosePrivateChat,
         handleSendPrivateMessage,
-    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp]);
+    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, updateChallengeProgress, claimChallengeReward, purchasePremiumPass]);
 
     return (
         <SocialStoreContext.Provider value={value}>

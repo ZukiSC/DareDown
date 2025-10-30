@@ -8,9 +8,10 @@ interface MainMenuScreenProps {
   onJoinLobby: () => void;
   onViewHallOfFame: () => void;
   onViewCommunityDares: () => void;
+  onViewDarePass: () => void;
 }
 
-const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby, onViewHallOfFame, onViewCommunityDares }) => {
+const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby, onViewHallOfFame, onViewCommunityDares, onViewDarePass }) => {
   const { currentPlayer } = useSocialStore();
   
   return (
@@ -51,14 +52,20 @@ const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLo
           Join Lobby
         </button>
          <button
+          onClick={onViewDarePass}
+          className="py-3 px-6 bg-teal-500 hover:bg-teal-600 text-white font-bold text-xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
+        >
+          Dare Pass ✨
+        </button>
+         <button
           onClick={onViewHallOfFame}
-          className="py-3 px-6 bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
+          className="py-2 px-6 bg-yellow-500/90 hover:bg-yellow-500 text-white font-semibold text-md rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
         >
           Hall of Fame 🏆
         </button>
         <button
           onClick={onViewCommunityDares}
-          className="py-3 px-6 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
+          className="py-2 px-6 bg-blue-500/90 hover:bg-blue-500 text-white font-semibold text-md rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
         >
           Community Dares 📦
         </button>
