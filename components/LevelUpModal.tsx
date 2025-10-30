@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Avatar, Badge, ColorTheme } from '../types';
 import Confetti from './Confetti';
@@ -33,7 +34,8 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ data, onClose }) => {
                     {isColor(reward) ? (
                         <div className={`w-14 h-14 rounded-full ${reward.primaryClass} border-4 ${reward.secondaryClass}`}></div>
                     ) : (
-                        <span>{reward.emoji}</span>
+                        // FIX: Differentiate between Badge and Avatar to get the correct emoji property.
+                        <span>{'tiers' in reward ? reward.tiers[0].emoji : reward.emoji}</span>
                     )}
                 </div>
                 <div>

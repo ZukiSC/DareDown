@@ -1,4 +1,4 @@
-import { Avatar, ColorTheme, Badge } from '../types';
+import { Avatar, ColorTheme, Badge, BadgeTier } from '../types';
 
 // --- AVATARS ---
 const AVATARS: Avatar[] = [
@@ -44,31 +44,41 @@ const COLORS: ColorTheme[] = [
 const BADGES: Badge[] = [
     { 
         id: 'badge_dare_survivor', 
-        emoji: '👹', 
         name: 'Dare Survivor', 
-        description: 'Awarded for completing a dare.',
-        unlockId: 'badge_dare_survivor' 
+        description: 'Complete dares to upgrade this badge.',
+        tiers: [
+            { tier: 1, name: 'Bronze', emoji: '🥉', unlockRequirement: { stat: 'daresCompleted', value: 1, description: 'Complete 1 dare' } },
+            { tier: 2, name: 'Silver', emoji: '🥈', unlockRequirement: { stat: 'daresCompleted', value: 10, description: 'Complete 10 dares' } },
+            { tier: 3, name: 'Gold', emoji: '🥇', unlockRequirement: { stat: 'daresCompleted', value: 50, description: 'Complete 50 dares' } },
+            { tier: 4, name: 'Legendary', emoji: '👹', unlockRequirement: { stat: 'daresCompleted', value: 100, description: 'Complete 100 dares' } },
+        ]
     },
     { 
         id: 'badge_winner', 
-        emoji: '👑', 
         name: 'Winner', 
-        description: 'Awarded for winning a game.',
-        unlockId: 'badge_winner' 
+        description: 'Win games to upgrade this badge.',
+        tiers: [
+            { tier: 1, name: 'Bronze', emoji: '🏆', unlockRequirement: { stat: 'wins', value: 1, description: 'Win 1 game' } },
+            { tier: 2, name: 'Silver', emoji: '👑', unlockRequirement: { stat: 'wins', value: 5, description: 'Win 5 games' } },
+            { tier: 3, name: 'Gold', emoji: '💎', unlockRequirement: { stat: 'wins', value: 25, description: 'Win 25 games' } },
+            { tier: 4, name: 'Legendary', emoji: '✨', unlockRequirement: { stat: 'wins', value: 50, description: 'Win 50 games' } },
+        ]
     },
     {
         id: 'badge_veteran',
-        emoji: '🛡️',
         name: 'Veteran',
         description: 'Awarded for reaching level 4.',
-        unlockId: 'level_4',
+        tiers: [
+             { tier: 1, name: 'Veteran', emoji: '🛡️', unlockRequirement: { stat: 'wins', value: 0, description: 'Reach level 4' } } // Stat is irrelevant here, unlocked by level
+        ]
     },
     {
         id: 'badge_darepass_s1',
-        emoji: '🌟',
         name: 'Season 1 Star',
         description: 'Awarded for completing Tier 1 of the Season 1 Dare Pass.',
-        unlockId: 'darepass_s1_t1',
+        tiers: [
+             { tier: 1, name: 'Season 1 Star', emoji: '🌟', unlockRequirement: { stat: 'wins', value: 0, description: 'Complete Tier 1 of Dare Pass' } }
+        ]
     }
 ];
 
@@ -81,6 +91,11 @@ export const getAllBadges = (): Badge[] => BADGES;
 export const getAvatarById = (id: string): Avatar | undefined => AVATARS.find(a => a.id === id);
 export const getColorById = (id: string): ColorTheme | undefined => COLORS.find(c => c.id === id);
 export const getBadgeById = (id: string): Badge | undefined => BADGES.find(b => b.id === id);
-export const getItemByUnlockId = (unlockId: string): Avatar | ColorTheme | Badge | undefined => {
-    return [...AVATARS, ...COLORS, ...BADGES].find(item => item.unlockId === unlockId);
+export const getItemByUnlockId = (unlockId: string): Avatar | ColorTheme | undefined => {
+    return [...AVATARS, ...COLORS].find(item => item.unlockId === unlockId);
+}
+
+export const getBadgeTierDetails = (id: string, tier: number): BadgeTier | undefined => {
+    const badge = getBadgeById(id);
+    return badge?.tiers.find(t => t.tier === tier);
 }

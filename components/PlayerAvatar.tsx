@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Player } from '../types';
-import { getAvatarById, getColorById, getBadgeById } from '../services/customizationService';
+import { getAvatarById, getColorById, getBadgeTierDetails } from '../services/customizationService';
 
 interface PlayerAvatarProps {
   player: Player;
@@ -15,10 +15,15 @@ interface PlayerAvatarProps {
 const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner, onClick, className, style }) => {
   const avatar = useMemo(() => getAvatarById(player.customization.avatarId), [player.customization.avatarId]);
   const color = useMemo(() => getColorById(player.customization.colorId), [player.customization.colorId]);
-  const badge = useMemo(() => player.customization.badgeId ? getBadgeById(player.customization.badgeId) : null, [player.customization.badgeId]);
+  const badgeInfo = useMemo(() => {
+    if (!player.customization.equippedBadge) return null;
+    const { id, tier } = player.customization.equippedBadge;
+    return getBadgeTierDetails(id, tier);
+  }, [player.customization.equippedBadge]);
   
   // Treat undefined as online for robustness
   const isOnline = player.isOnline !== false;
+  const isLegendary = player.customization.equippedBadge?.tier === 4;
 
   if (!avatar || !color) {
       return null;
@@ -58,8 +63,13 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
           {player.level}
         </span>
 
-        {badge && (
-          <span className="absolute -bottom-2 -left-2 text-xl bg-gray-800 rounded-full p-1" title={badge.name}>{badge.emoji}</span>
+        {badgeInfo && (
+          <span 
+            className={`absolute -bottom-2 -left-2 text-xl bg-gray-800 rounded-full p-1 ${isLegendary ? 'animate-glow-legendary' : ''}`} 
+            title={badgeInfo.name}
+          >
+            {badgeInfo.emoji}
+          </span>
         )}
         {player.isHost && !isWinner && (
           <span className="absolute -top-2 -right-2 text-2xl" title="Host">👑</span>

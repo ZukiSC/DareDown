@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
-import { Player, Dare, Badge, PowerUp, FloatingGreeting, Avatar, ColorTheme } from '../types';
+import { Player, Dare, Badge, PowerUp, FloatingGreeting, Avatar, ColorTheme, UnlockNotificationData, BadgeTier } from '../types';
 import { preloadSounds, toggleMute } from '../services/audioService';
 import { requestNotificationPermission } from '../services/notificationService';
 import { useSocialStore } from './SocialStore';
@@ -14,7 +14,7 @@ interface UIStoreState {
   loadingState: LoadingState;
   isMuted: boolean;
   activeReactions: ActiveReaction[];
-  newUnlock: Badge | PowerUp | null;
+  newUnlock: UnlockNotificationData | null;
   notificationPermission: NotificationPermission;
   isChatOpen: boolean;
   isFriendsPanelOpen: boolean;
@@ -46,7 +46,7 @@ type Action =
   | { type: 'TOGGLE_MUTE'; payload: boolean }
   | { type: 'ADD_REACTION'; payload: ActiveReaction }
   | { type: 'REMOVE_REACTION'; payload: string }
-  | { type: 'SHOW_UNLOCK'; payload: Badge | PowerUp }
+  | { type: 'SHOW_UNLOCK'; payload: UnlockNotificationData }
   | { type: 'HIDE_UNLOCK' }
   | { type: 'SET_NOTIFICATION_PERMISSION'; payload: NotificationPermission }
   | { type: 'SET_CHAT_OPEN'; payload: boolean }
@@ -104,7 +104,7 @@ interface UIStoreContextType extends UIStoreState {
     viewingProfile: Player | null;
     setLoading: (loading: LoadingState) => void;
     showNotification: (message: string, emoji?: string) => void;
-    showUnlock: (item: Badge | PowerUp) => void;
+    showUnlock: (notificationData: UnlockNotificationData) => void;
     showLevelUpNotification: (data: LevelUpModalData) => void;
     hideLevelUpNotification: () => void;
     handleToggleMute: () => void;
@@ -152,8 +152,8 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         );
     }, []);
     
-    const showUnlock = useCallback((item: Badge | PowerUp) => {
-        dispatch({ type: 'SHOW_UNLOCK', payload: item });
+    const showUnlock = useCallback((notificationData: UnlockNotificationData) => {
+        dispatch({ type: 'SHOW_UNLOCK', payload: notificationData });
         setTimeout(() => dispatch({ type: 'HIDE_UNLOCK' }), 4000);
     }, []);
 

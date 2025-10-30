@@ -112,6 +112,13 @@
       .animate-glow-host {
         animation: glow-host 2.5s ease-in-out infinite;
       }
+      @keyframes glow-legendary {
+        0%, 100% { filter: drop-shadow(0 0 2px #fef08a) drop-shadow(0 0 5px #facc15) drop-shadow(0 0 10px #eab308); }
+        50% { filter: drop-shadow(0 0 5px #fef08a) drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #eab308); }
+      }
+      .animate-glow-legendary {
+        animation: glow-legendary 2.5s ease-in-out infinite;
+      }
       @keyframes shimmer {
         0% { background-position: -1000px 0; }
         100% { background-position: 1000px 0; }

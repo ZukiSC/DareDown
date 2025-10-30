@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
@@ -33,6 +34,7 @@ import { UIStoreProvider, useUIStore } from './stores/UIStore';
 import { GameStoreProvider, useGameStore } from './stores/GameStore';
 import LevelUpModal from './components/LevelUpModal';
 import { getRewardForLevel } from './services/levelingService';
+import { Avatar, Badge, ColorTheme } from './types';
 
 
 const AppContent = () => {
@@ -49,9 +51,8 @@ const AppContent = () => {
         currentPlayer, allPlayers, chatMessages, privateChats
     } = useSocialStore();
 
-    // FIX: Destructure `newUnlock` from the UI store to display the unlock notification.
     const {
-        loadingState, isMuted, isChatOpen, isFriendsPanelOpen, viewingProfile, 
+        loadingState, isMuted, isChatOpen, isFriendsPanelOpen, viewingProfileId, 
         isArchiveOpen, viewingReplay, greetings, newUnlock, levelUpModalData
     } = useUIStore();
 
@@ -79,6 +80,11 @@ const AppContent = () => {
         handleViewProfile, setViewingProfile, setIsArchiveOpen, setViewingReplay, handleSendGreeting,
         showNotification, showLevelUpNotification, hideLevelUpNotification
     } = useUIStore();
+    
+    // --- DERIVED STATE ---
+    const viewingProfile = React.useMemo(() => {
+        return allPlayers.find(p => p.id === viewingProfileId) || null;
+    }, [allPlayers, viewingProfileId]);
     
     // --- LEVEL UP EFFECT ---
     const prevLevelRef = useRef(currentPlayer?.level);
@@ -210,6 +216,64 @@ const AppContent = () => {
         )
     }
 
+    const renderUnlockNotification = () => {
+        if (!newUnlock) return null;
+        let title = '';
+        let item: { name: string; emoji: string; description?: string; };
+
+        switch (newUnlock.type) {
+            case 'powerup':
+                title = 'Power-Up Gained!';
+                item = newUnlock.item;
+                break;
+            case 'badge_upgrade':
+                title = 'Badge Upgraded!';
+                item = {
+                    name: `${newUnlock.item.name} (${newUnlock.tier.name})`,
+                    emoji: newUnlock.tier.emoji,
+                    // FIX: Correctly access the description from the unlockRequirement property.
+                    description: newUnlock.tier.unlockRequirement.description,
+                };
+                break;
+            case 'item': {
+                title = 'Item Unlocked!';
+                const unlockedItem = newUnlock.item;
+                // FIX: Handle different unlocked item types to create a consistent 'item' object for rendering.
+                if ('tiers' in unlockedItem) { // Badge
+                    item = {
+                        name: unlockedItem.name,
+                        emoji: unlockedItem.tiers[0].emoji,
+                        description: unlockedItem.description,
+                    };
+                } else if ('primaryClass' in unlockedItem) { // ColorTheme
+                    item = {
+                        name: unlockedItem.name,
+                        emoji: '🎨', // Using a generic emoji for colors
+                        description: 'New color theme unlocked!',
+                    };
+                } else { // Avatar (already has name and emoji)
+                    item = unlockedItem;
+                }
+                break;
+            }
+            default: return null;
+        }
+
+        return (
+             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 pointer-events-none">
+                <div className="bg-gray-800/90 backdrop-blur-md p-4 rounded-xl shadow-2xl flex items-center gap-4 animate-slide-in-up border border-purple-500/50">
+                    <span className="text-5xl">{item.emoji}</span>
+                    <div>
+                        <h3 className="text-xl font-bold text-yellow-300">{title}</h3>
+                        <p className="font-semibold">{item.name}</p>
+                        {item.description && <p className="text-sm text-gray-400">{item.description}</p>}
+                    </div>
+                </div>
+            </div>
+        )
+    };
+
+
     return (
         <div className="h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col items-center p-2 sm:p-4">
         <Toaster
@@ -305,18 +369,7 @@ const AppContent = () => {
             return <PrivateChatWindow key={friendId} friend={friend} messages={messages} onSendMessage={(text) => handleSendPrivateMessage(friendId, text)} onClose={() => handleClosePrivateChat(friendId)} />
         })}
 
-        {newUnlock && (
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 pointer-events-none">
-                <div className="bg-gray-800/90 backdrop-blur-md p-4 rounded-xl shadow-2xl flex items-center gap-4 animate-slide-in-up border border-purple-500/50">
-                    <span className="text-5xl">{newUnlock.emoji}</span>
-                    <div>
-                        <h3 className={`text-xl font-bold ${ 'unlockId' in newUnlock ? 'text-yellow-300' : 'text-blue-300'}`}>{ 'unlockId' in newUnlock ? 'Item Unlocked!' : 'Power-Up Gained!'}</h3>
-                        <p className="font-semibold">{newUnlock.name}</p>
-                        <p className="text-sm text-gray-400">{newUnlock.description}</p>
-                    </div>
-                </div>
-            </div>
-        )}
+        {renderUnlockNotification()}
         
         {isArchiveOpen && (
             <DareArchiveModal 

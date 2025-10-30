@@ -1,13 +1,15 @@
+
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, PropsWithChildren } from 'react';
-import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme, DarePassChallenge } from '../types';
+import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme, DarePassChallenge, BadgeTier } from '../types';
 import { calculateLevelInfo, calculateXpForLevel, getRewardForLevel } from '../services/levelingService';
 import { getInitialChallenges, STARS_PER_TIER, CURRENT_SEASON_REWARDS } from '../services/darePassService';
+import { getAllBadges } from '../services/customizationService';
 
 // --- MOCK DATA ---
 const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'>[] = Array.from({ length: 15 }, (_, i) => ({
     id: `p${i + 1}`,
     name: `Player ${i + 1}`,
-    customization: { avatarId: `avatar_${(i % 10) + 1}`, colorId: `color_${(i % 8) + 1}`, badgeId: null },
+    customization: { avatarId: `avatar_${(i % 10) + 1}`, colorId: `color_${(i % 8) + 1}`, equippedBadge: null },
     unlocks: [],
     stats: { wins: Math.floor(Math.random() * 20), daresCompleted: Math.floor(Math.random() * 50), daresFailed: Math.floor(Math.random() * 15) },
     friends: [],
@@ -17,6 +19,8 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     level: 1,
     xp: 0,
     xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
+    badgeUnlocks: {},
+    // Dare Pass
     darePassTier: 1,
     darePassStars: 0,
     hasPremiumPass: false,
@@ -28,6 +32,9 @@ const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' |
     friends: ['p3', 'p5'],
     friendRequests: [{ fromId: 'p8', fromName: 'Player 8', fromCustomization: MOCK_ALL_PLAYERS_DATA[7].customization, status: 'pending' as const }],
     hasPremiumPass: true, // Main player has premium for testing
+    stats: { wins: 5, daresCompleted: 12, daresFailed: 3 },
+    badgeUnlocks: { 'badge_dare_survivor': 2, 'badge_winner': 2 }, // Unlocked silver for both
+    customization: { avatarId: 'avatar_1', colorId: 'color_1', equippedBadge: { id: 'badge_dare_survivor', tier: 2 } },
 };
 MOCK_ALL_PLAYERS_DATA[0] = initialPlayer;
 MOCK_ALL_PLAYERS_DATA[2].friends.push('p1');
@@ -127,6 +134,7 @@ interface SocialStoreContextType extends SocialStoreState {
   addPlayer: (player: Player) => void;
   removePlayer: (playerId: string) => void;
   addXp: (playerId: string, amount: number) => Promise<{ leveledUp: boolean; newLevel?: number; reward?: Avatar | ColorTheme | Badge } | null>;
+  checkForBadgeUpgrades: (playerId: string) => { badge: Badge, tier: BadgeTier } | null;
   // Dare Pass
   updateChallengeProgress: (playerId: string, type: 'play_minigame' | 'win_game', amount: number) => void;
   claimChallengeReward: (playerId: string, challengeId: string) => void;
@@ -215,6 +223,38 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         }
         
         return { leveledUp: false };
+    }, [state.allPlayers, updatePlayer]);
+
+    const checkForBadgeUpgrades = useCallback((playerId: string): { badge: Badge, tier: BadgeTier } | null => {
+        const player = state.allPlayers.find(p => p.id === playerId);
+        if (!player) return null;
+
+        const allGameBadges = getAllBadges();
+        let newBadgeUnlocks = { ...player.badgeUnlocks };
+        let didUpgrade = false;
+        let firstUpgrade: { badge: Badge, tier: BadgeTier } | null = null;
+
+        allGameBadges.forEach(badge => {
+            const currentTier = newBadgeUnlocks[badge.id] || 0;
+            const nextTier = badge.tiers.find(t => t.tier === currentTier + 1);
+
+            if (nextTier) {
+                const statValue = player.stats[nextTier.unlockRequirement.stat];
+                if (statValue >= nextTier.unlockRequirement.value) {
+                    newBadgeUnlocks[badge.id] = nextTier.tier;
+                    didUpgrade = true;
+                    if (!firstUpgrade) {
+                        firstUpgrade = { badge, tier: nextTier };
+                    }
+                }
+            }
+        });
+
+        if (didUpgrade) {
+            updatePlayer(playerId, { badgeUnlocks: newBadgeUnlocks });
+        }
+        
+        return firstUpgrade;
     }, [state.allPlayers, updatePlayer]);
 
     const updateChallengeProgress = useCallback((playerId: string, type: 'play_minigame' | 'win_game', amount: number) => {
@@ -358,6 +398,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         addPlayer,
         removePlayer,
         addXp,
+        checkForBadgeUpgrades,
         updateChallengeProgress,
         claimChallengeReward,
         purchasePremiumPass,
@@ -369,7 +410,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         handleOpenPrivateChat,
         handleClosePrivateChat,
         handleSendPrivateMessage,
-    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, updateChallengeProgress, claimChallengeReward, purchasePremiumPass]);
+    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, checkForBadgeUpgrades, updateChallengeProgress, claimChallengeReward, purchasePremiumPass]);
 
     return (
         <SocialStoreContext.Provider value={value}>

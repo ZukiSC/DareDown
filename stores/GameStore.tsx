@@ -1,3 +1,4 @@
+
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
@@ -6,9 +7,6 @@ import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
 import { showLocalNotification } from '../services/notificationService';
-// FIX: Removed getRandomPowerUp from this import as it's in powerUpService.
-import { getBadgeById } from '../services/customizationService';
-// FIX: Imported power-up related functions from the correct service.
 import { getRandomPowerUp, getPowerUpById } from '../services/powerUpService';
 import { useSocialStore } from './SocialStore';
 import { useUIStore } from './UIStore';
@@ -44,17 +42,17 @@ interface GameStoreState {
 const MOCK_HALL_OF_FAME: HallOfFameEntry[] = [
     {
         dare: { id: 'hof_dare_1', text: "Sing everything you say for the next 5 minutes like an opera star.", assigneeId: 'p2', status: 'completed', replayUrl: 'mock-hof-replay-1.mp4'},
-        assignee: { id: 'p2', name: 'Player 2', customization: { avatarId: 'avatar_2', colorId: 'color_2', badgeId: null } },
+        assignee: { id: 'p2', name: 'Player 2', customization: { avatarId: 'avatar_2', colorId: 'color_2', equippedBadge: null } },
         votes: 127
     },
     {
         dare: { id: 'hof_dare_2', text: "Do your best impression of a chicken laying an egg.", assigneeId: 'p4', status: 'completed', replayUrl: 'mock-hof-replay-2.mp4' },
-        assignee: { id: 'p4', name: 'Player 4', customization: { avatarId: 'avatar_4', colorId: 'color_4', badgeId: 'badge_winner' } },
+        assignee: { id: 'p4', name: 'Player 4', customization: { avatarId: 'avatar_4', colorId: 'color_4', equippedBadge: { id: 'badge_winner', tier: 1 } } },
         votes: 98
     },
     {
         dare: { id: 'hof_dare_3', text: "Create a hat out of toilet paper and wear it for the rest of the game.", assigneeId: 'p6', status: 'completed', replayUrl: 'mock-hof-replay-3.mp4' },
-        assignee: { id: 'p6', name: 'Player 6', customization: { avatarId: 'avatar_6', colorId: 'color_6', badgeId: null } },
+        assignee: { id: 'p6', name: 'Player 6', customization: { avatarId: 'avatar_6', colorId: 'color_6', equippedBadge: null } },
         votes: 75
     },
 ];
@@ -425,7 +423,7 @@ const generateMockLobbies = (allPlayers: Player[], count: number): PublicLobby[]
 
 export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
-    const { currentPlayer, allPlayers, updatePlayer, addXp, updateChallengeProgress } = useSocialStore();
+    const { currentPlayer, allPlayers, updatePlayer, addXp, updateChallengeProgress, checkForBadgeUpgrades } = useSocialStore();
     const { setLoading, showNotification, showUnlock, setViewingReplay } = useUIStore();
 
     // --- SELECTORS / DERIVED STATE ---
@@ -479,19 +477,21 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
 
         players.forEach(p => {
             const isWinner = p.id === winner.id;
+            const newWins = p.stats.wins + (isWinner ? 1 : 0);
             updatePlayer(p.id, {
                 gameHistory: [...p.gameHistory, gameHistoryEntry],
-                stats: { ...p.stats, wins: p.stats.wins + (isWinner ? 1 : 0) }
+                stats: { ...p.stats, wins: newWins }
             });
+            if (isWinner) {
+                const upgradeInfo = checkForBadgeUpgrades(p.id);
+                if (upgradeInfo && p.id === currentPlayer.id) {
+                    showUnlock({ type: 'badge_upgrade', item: upgradeInfo.badge, tier: upgradeInfo.tier });
+                }
+            }
         });
-
-        if (winner && !winner.unlocks.includes('badge_winner')) {
-            showUnlock(getBadgeById('badge_winner'));
-            updatePlayer(winner.id, { unlocks: [...winner.unlocks, 'badge_winner'] });
-        }
         
         dispatch({ type: 'END_GAME' });
-    }, [players, state.currentDare, updatePlayer, showUnlock, addXp, updateChallengeProgress]);
+    }, [players, state.currentDare, updatePlayer, addXp, updateChallengeProgress, checkForBadgeUpgrades, currentPlayer, showUnlock]);
 
     const handleNextRound = useCallback(() => {
         const potentialRecipients = players.filter(p => p.id !== state.roundLoserId);
@@ -501,7 +501,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             updatePlayer(recipient.id, { powerUps: [...recipient.powerUps, newPowerUp.id] });
             
             if (recipient.id === currentPlayer.id) {
-                showUnlock(newPowerUp);
+                showUnlock({ type: 'powerup', item: newPowerUp });
             }
             showNotification(`${recipient.name} got a power-up!`, newPowerUp.emoji);
             showLocalNotification("You got a power-up!", { body: `You received: ${newPowerUp.name}` });
@@ -632,20 +632,23 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             }
             playSound(passed ? 'dareComplete' : 'incorrect');
             
+            const newDaresCompleted = roundLoser.stats.daresCompleted + (passed ? 1 : 0);
             updatePlayer(roundLoser.id, {
                 stats: {
                     ...roundLoser.stats,
-                    daresCompleted: roundLoser.stats.daresCompleted + (passed ? 1 : 0),
+                    daresCompleted: newDaresCompleted,
                     daresFailed: roundLoser.stats.daresFailed + (passed ? 0 : 1),
                 }
             });
+            if (passed) {
+                const upgradeInfo = checkForBadgeUpgrades(roundLoser.id);
+                if (upgradeInfo && roundLoser.id === currentPlayer.id) {
+                    showUnlock({ type: 'badge_upgrade', item: upgradeInfo.badge, tier: upgradeInfo.tier });
+                }
+            }
 
             if (passed) {
                 showLocalNotification("Dare Completed!", { body: `${roundLoser.name} completed their dare.` });
-                if (!roundLoser.unlocks.includes('badge_dare_survivor')) {
-                    showUnlock(getBadgeById('badge_dare_survivor'));
-                    updatePlayer(roundLoser.id, { unlocks: [...roundLoser.unlocks, 'badge_dare_survivor'] });
-                }
                 players.forEach(p => {
                     if (p.id !== roundLoser.id) updatePlayer(p.id, { score: p.score + 10 });
                 });
@@ -654,7 +657,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             }
         }
         setTimeout(() => handleNextRound(), 5000);
-    }, [roundLoser, state.currentDare, updatePlayer, players, handleNextRound, showUnlock, addXp]);
+    }, [roundLoser, state.currentDare, updatePlayer, players, handleNextRound, addXp, checkForBadgeUpgrades, currentPlayer, showUnlock]);
 
 
     const handleUsePowerUp = (powerUpId: PowerUpType) => {
@@ -664,7 +667,10 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         updatePlayer(currentPlayer.id, { powerUps: updatedPowerUps });
         
         const powerUp = getPowerUpById(powerUpId);
-        showNotification(`${powerUp?.name} used!`, powerUp?.emoji);
+        if (powerUp) {
+            showUnlock({type: 'powerup', item: powerUp});
+            showNotification(`${powerUp.name} used!`, powerUp.emoji);
+        }
     
         switch (powerUpId) {
             case 'SKIP_DARE':

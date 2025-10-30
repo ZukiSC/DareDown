@@ -3,7 +3,7 @@ export type Category = 'General' | 'Programming' | 'Trivia' | 'Speed/Reflex' | '
 export interface PlayerCustomization {
     avatarId: string;
     colorId: string;
-    badgeId: string | null;
+    equippedBadge: { id: string; tier: number } | null;
 }
 
 export type PowerUpType = 'SKIP_DARE' | 'EXTRA_TIME' | 'SWAP_CATEGORY';
@@ -52,6 +52,7 @@ export interface Player {
   gameHistory: GameHistoryEntry[];
   stats: PlayerStats;
   isOnline?: boolean;
+  badgeUnlocks: { [badgeId: string]: number }; // badgeId -> highest tier unlocked
   // Progression
   level: number;
   xp: number;
@@ -126,13 +127,30 @@ export interface ColorTheme {
     unlockId?: string;
 }
 
+export interface BadgeTier {
+    tier: number;
+    name: string;
+    emoji: string;
+    unlockRequirement: {
+        stat: 'daresCompleted' | 'wins';
+        value: number;
+        description: string;
+    };
+}
+
 export interface Badge {
     id: string;
-    emoji: string;
-    name: string;
+    name: string; // Base name, e.g., "Dare Survivor"
     description: string;
-    unlockId: string;
+    tiers: BadgeTier[];
 }
+
+// --- NOTIFICATION & UNLOCK TYPES ---
+export type UnlockNotificationData = 
+    | { type: 'powerup', item: PowerUp }
+    | { type: 'item', item: Avatar | ColorTheme | Badge }
+    | { type: 'badge_upgrade', item: Badge, tier: BadgeTier };
+
 
 // --- POWER-UP TYPES ---
 export interface PowerUp {
