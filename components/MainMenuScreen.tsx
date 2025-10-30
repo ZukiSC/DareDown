@@ -2,9 +2,10 @@ import React from 'react';
 
 interface MainMenuScreenProps {
   onCreateLobby: () => void;
+  onJoinLobby: () => void;
 }
 
-const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby }) => {
+const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby }) => {
   return (
     <div className="flex flex-col h-full items-center justify-center text-center p-4 animate-fade-in">
       <h1 className="text-6xl md:text-8xl font-bold text-purple-400 drop-shadow-lg mb-4">
@@ -20,8 +21,8 @@ const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby }) => {
           Create Lobby
         </button>
         <button
-          disabled
-          className="py-3 px-6 bg-gray-600 text-gray-400 font-bold text-xl rounded-lg shadow-lg cursor-not-allowed"
+          onClick={onJoinLobby}
+          className="py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
         >
           Join Lobby
         </button>

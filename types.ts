@@ -67,6 +67,7 @@ export interface Dare {
 
 export enum GameState {
   MAIN_MENU = 'MAIN_MENU',
+  PUBLIC_LOBBIES = 'PUBLIC_LOBBIES',
   CATEGORY_SELECTION = 'CATEGORY_SELECTION',
   CUSTOMIZATION = 'CUSTOMIZATION',
   LOBBY = 'LOBBY',
@@ -155,4 +156,14 @@ export interface FloatingGreeting {
   fromName: string;
   fromColorClass: string; // Tailwind class like 'border-purple-300'
   content: string;
+}
+
+export interface PublicLobby {
+    id: string;
+    hostName: string;
+    hostCustomization: PlayerCustomization;
+    playerCount: number;
+    maxPlayers: number;
+    category: Category;
+    dareMode: 'AI' | 'COMMUNITY';
 }

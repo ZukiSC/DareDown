@@ -1,7 +1,7 @@
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
-import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType } from '../types';
+import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
@@ -31,6 +31,7 @@ interface GameStoreState {
   dareMode: 'AI' | 'COMMUNITY';
   submittedDares: Dare[];
   winningDareId: string | null;
+  publicLobbies: PublicLobby[];
 }
 
 const initialState: GameStoreState = {
@@ -50,6 +51,7 @@ const initialState: GameStoreState = {
   dareMode: 'AI',
   submittedDares: [],
   winningDareId: null,
+  publicLobbies: [],
 };
 
 // --- ACTIONS ---
@@ -83,7 +85,10 @@ type Action =
   | { type: 'GO_BACK' }
   | { type: 'VOTE_FOR_TEAMMATE'; payload: { voterId: string, targetId: string } }
   // FIX: Updated FINALIZE_TEAM_VOTE to carry losingTeamPlayers in payload.
-  | { type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: Player[] } };
+  | { type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: Player[] } }
+  | { type: 'VIEW_PUBLIC_LOBBIES'; payload: { lobbies: PublicLobby[] } }
+  | { type: 'JOIN_LOBBY'; payload: { hostId: string; playerId: string } }
+  | { type: 'REFRESH_LOBBIES'; payload: { lobbies: PublicLobby[] } };
 
 
 // --- REDUCER ---
@@ -216,6 +221,8 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
         return initialState;
     case 'GO_BACK':
         switch (state.gameState) {
+            case GameState.PUBLIC_LOBBIES:
+                return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CATEGORY_SELECTION:
                 return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CUSTOMIZATION:
@@ -223,6 +230,12 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             default:
                 return state;
         }
+    case 'VIEW_PUBLIC_LOBBIES':
+        return { ...state, gameState: GameState.PUBLIC_LOBBIES, publicLobbies: action.payload.lobbies };
+    case 'JOIN_LOBBY':
+        return { ...state, gameState: GameState.LOBBY, playersInRoom: [action.payload.hostId, action.payload.playerId] };
+    case 'REFRESH_LOBBIES':
+        return { ...state, publicLobbies: action.payload.lobbies };
     default:
       return state;
   }
@@ -255,9 +268,37 @@ interface GameStoreContextType extends GameStoreState {
   handleDareVote: (dareId: string) => void;
   handleJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
   handleTeamMateVote: (targetId: string) => void;
+  handleViewPublicLobbies: () => void;
+  handleJoinPublicLobby: (lobbyId: string) => void;
+  handleQuickJoin: () => void;
+  handleRefreshLobbies: () => void;
 }
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
+
+// Mock data generator for public lobbies
+const generateMockLobbies = (allPlayers: Player[], count: number): PublicLobby[] => {
+    const lobbies: PublicLobby[] = [];
+    const availableHosts = allPlayers.filter(p => p.id !== 'p1');
+
+    for (let i = 0; i < count; i++) {
+        if (availableHosts.length === 0) break;
+        const hostIndex = Math.floor(Math.random() * availableHosts.length);
+        const host = availableHosts.splice(hostIndex, 1)[0];
+        
+        lobbies.push({
+            id: `lobby_${host.id}`,
+            hostName: host.name,
+            hostCustomization: host.customization,
+            playerCount: Math.floor(Math.random() * 6) + 2, // 2-7 players
+            maxPlayers: 8,
+            category: ['General', 'Trivia', 'Speed/Reflex', 'Puzzles'][Math.floor(Math.random() * 4)] as Category,
+            dareMode: Math.random() > 0.5 ? 'AI' : 'COMMUNITY',
+        });
+    }
+    return lobbies;
+};
+
 
 export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
@@ -565,6 +606,33 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }, (otherVoters.length + 1) * 500);
     };
 
+    const handleViewPublicLobbies = () => {
+        const lobbies = generateMockLobbies(allPlayers, 5);
+        dispatch({ type: 'VIEW_PUBLIC_LOBBIES', payload: { lobbies } });
+    };
+
+    const handleRefreshLobbies = () => {
+        const lobbies = generateMockLobbies(allPlayers, 5);
+        dispatch({ type: 'REFRESH_LOBBIES', payload: { lobbies } });
+    };
+
+    const handleJoinPublicLobby = (lobbyId: string) => {
+        const hostId = lobbyId.replace('lobby_', '');
+        updatePlayer(currentPlayer.id, { isHost: false, score: 0, teamId: null, powerUps: [], category: undefined });
+        dispatch({ type: 'JOIN_LOBBY', payload: { hostId, playerId: currentPlayer.id } });
+    };
+    
+    const handleQuickJoin = () => {
+        const availableLobbies = state.publicLobbies.filter(l => l.playerCount < l.maxPlayers);
+        if (availableLobbies.length > 0) {
+            // Pick a random available lobby
+            const lobbyToJoin = availableLobbies[Math.floor(Math.random() * availableLobbies.length)];
+            handleJoinPublicLobby(lobbyToJoin.id);
+        } else {
+            showNotification('No available lobbies for Quick Join.', '😢');
+        }
+    };
+
 
     const handleCreateLobby = () => {
         updatePlayer(currentPlayer.id, { isHost: true, score: 0, teamId: null });
@@ -662,7 +730,11 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleDareVote,
         handleJoinTeam,
         handleTeamMateVote,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote]);
+        handleViewPublicLobbies,
+        handleJoinPublicLobby,
+        handleQuickJoin,
+        handleRefreshLobbies,
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers]);
 
     return (
         <GameStoreContext.Provider value={value}>

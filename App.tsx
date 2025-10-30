@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
@@ -23,6 +22,7 @@ import DareVotingScreen from './components/DareVotingScreen';
 import DareProofScreen from './components/DareProofScreen';
 import GameEndScreen from './components/GameEndScreen';
 import TeamDareVoteScreen from './components/TeamDareVoteScreen';
+import PublicLobbiesScreen from './components/PublicLobbiesScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -35,7 +35,7 @@ const AppContent = () => {
     const {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
-        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes
+        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies
     } = useGameStore();
 
     const {
@@ -54,7 +54,8 @@ const AppContent = () => {
         handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleStreamEnd,
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
-        handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote
+        handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote,
+        handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies
     } = useGameStore();
 
     const {
@@ -103,7 +104,9 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} />;
+                case GameState.PUBLIC_LOBBIES:
+                    return <PublicLobbiesScreen lobbies={publicLobbies} onJoin={handleJoinPublicLobby} onQuickJoin={handleQuickJoin} onRefresh={handleRefreshLobbies} onGoBack={handleGoBack} />;
                 case GameState.CATEGORY_SELECTION:
                     return <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={handleGoBack} />;
                 case GameState.CUSTOMIZATION:
@@ -144,7 +147,7 @@ const AppContent = () => {
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} />;
                 }
             })()}
             </div>
@@ -152,7 +155,7 @@ const AppContent = () => {
     };
   
     const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatButton = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
+    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
 
     if (!currentPlayer) {
         return (
