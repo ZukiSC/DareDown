@@ -52,6 +52,10 @@ export interface Player {
   gameHistory: GameHistoryEntry[];
   stats: PlayerStats;
   isOnline?: boolean;
+  // Progression
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
 }
 
 export interface Dare {
@@ -69,6 +73,7 @@ export enum GameState {
   MAIN_MENU = 'MAIN_MENU',
   PUBLIC_LOBBIES = 'PUBLIC_LOBBIES',
   HALL_OF_FAME = 'HALL_OF_FAME',
+  COMMUNITY_DARES = 'COMMUNITY_DARES',
   CATEGORY_SELECTION = 'CATEGORY_SELECTION',
   CUSTOMIZATION = 'CUSTOMIZATION',
   LOBBY = 'LOBBY',
@@ -181,4 +186,16 @@ export interface HallOfFameEntry {
   dare: Dare;
   assignee: HallOfFameAssignee;
   votes: number;
+}
+
+// --- DARE PACK TYPES ---
+export interface DarePack {
+  id: string;
+  name: string;
+  description: string;
+  creatorId: string;
+  creatorName: string;
+  dares: string[];
+  votes: number;
+  isOfficial?: boolean;
 }

@@ -50,14 +50,16 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
       <div className={`relative w-14 h-14 rounded-full ${color.primaryClass} mb-1 flex items-center justify-center text-3xl font-bold border-4 ${isCurrentPlayer ? color.secondaryClass : 'border-transparent'}`}>
         <span>{avatar.emoji}</span>
 
-        {/* Online Status Indicator */}
+        {/* Level Badge */}
         <span
-          className={`absolute -bottom-1 -left-1 w-4 h-4 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-400 animate-pulse-subtle' : 'bg-gray-500'}`}
-          title={isOnline ? 'Online' : 'Offline'}
-        ></span>
+          className="absolute -bottom-1 right-0 w-6 h-6 rounded-full bg-gray-800 border-2 border-purple-400 flex items-center justify-center text-xs font-bold"
+          title={`Level ${player.level}`}
+        >
+          {player.level}
+        </span>
 
         {badge && (
-          <span className="absolute -bottom-2 -right-2 text-xl bg-gray-800 rounded-full p-1" title={badge.name}>{badge.emoji}</span>
+          <span className="absolute -bottom-2 -left-2 text-xl bg-gray-800 rounded-full p-1" title={badge.name}>{badge.emoji}</span>
         )}
         {player.isHost && !isWinner && (
           <span className="absolute -top-2 -right-2 text-2xl" title="Host">👑</span>

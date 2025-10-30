@@ -12,6 +12,10 @@ const AVATARS: Avatar[] = [
     { id: 'avatar_8', emoji: '👨‍🍳', name: 'Chef' },
     { id: 'avatar_9', emoji: '🕵️', name: 'Detective' },
     { id: 'avatar_10', emoji: '👽', name: 'Alien' },
+    // Unlockable Avatars
+    { id: 'avatar_11', emoji: '🤖', name: 'Cyborg', unlockId: 'level_2' },
+    { id: 'avatar_12', emoji: '🧛', name: 'Vampire', unlockId: 'level_5' },
+    { id: 'avatar_13', emoji: '✨', name: 'Celestial', unlockId: 'level_10' },
 
 ];
 
@@ -25,6 +29,9 @@ const COLORS: ColorTheme[] = [
     { id: 'color_6', name: 'Pink', primaryClass: 'bg-pink-500', secondaryClass: 'border-pink-300' },
     { id: 'color_7', name: 'Indigo', primaryClass: 'bg-indigo-500', secondaryClass: 'border-indigo-300' },
     { id: 'color_8', name: 'Teal', primaryClass: 'bg-teal-500', secondaryClass: 'border-teal-300' },
+    // Unlockable Colors
+    { id: 'color_9', name: 'Cyan', primaryClass: 'bg-cyan-500', secondaryClass: 'border-cyan-300', unlockId: 'level_3' },
+    { id: 'color_10', name: 'Lime', primaryClass: 'bg-lime-500', secondaryClass: 'border-lime-300', unlockId: 'level_7' },
 ];
 
 // --- BADGES (all are unlockable) ---
@@ -43,6 +50,13 @@ const BADGES: Badge[] = [
         description: 'Awarded for winning a game.',
         unlockId: 'badge_winner' 
     },
+    {
+        id: 'badge_veteran',
+        emoji: '🛡️',
+        name: 'Veteran',
+        description: 'Awarded for reaching level 4.',
+        unlockId: 'level_4',
+    }
 ];
 
 // --- EXPORT FUNCTIONS ---

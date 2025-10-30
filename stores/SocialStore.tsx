@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, PropsWithChildren } from 'react';
-import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization } from '../types';
+import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme } from '../types';
+import { calculateLevelInfo, calculateXpForLevel, getRewardForLevel } from '../services/levelingService';
 
 // --- MOCK DATA ---
 const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'>[] = Array.from({ length: 15 }, (_, i) => ({
@@ -12,6 +13,9 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     friendRequests: [],
     gameHistory: [],
     isOnline: Math.random() > 0.3,
+    level: 1,
+    xp: 0,
+    xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
 }));
 
 const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'> & { friends: string[], friendRequests: FriendRequest[] } = {
@@ -116,6 +120,7 @@ interface SocialStoreContextType extends SocialStoreState {
   updatePlayer: (playerId: string, updates: Partial<Player>) => void;
   addPlayer: (player: Player) => void;
   removePlayer: (playerId: string) => void;
+  addXp: (playerId: string, amount: number) => Promise<{ leveledUp: boolean; newLevel?: number; reward?: Avatar | ColorTheme | Badge } | null>;
   handleSendFriendRequest: (targetId: string) => boolean;
   handleAcceptFriendRequest: (fromId: string) => string | null;
   handleDeclineFriendRequest: (fromId: string) => void;
@@ -164,6 +169,44 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     }, []);
     const addPlayer = useCallback((player: Player) => dispatch({ type: 'ADD_PLAYER', payload: player }), []);
     const removePlayer = useCallback((playerId: string) => dispatch({ type: 'REMOVE_PLAYER', payload: playerId }), []);
+    
+    const addXp = useCallback(async (playerId: string, amount: number): Promise<{ leveledUp: boolean; newLevel?: number; reward?: Avatar | ColorTheme | Badge } | null> => {
+        const player = state.allPlayers.find(p => p.id === playerId);
+        if (!player) return null;
+
+        const currentTotalXp = calculateXpForLevel(player.level) + player.xp;
+        const newTotalXp = currentTotalXp + amount;
+        const oldLevel = player.level;
+        const { level: newLevel, xp: newXp, xpToNextLevel: newXpToNextLevel } = calculateLevelInfo(newTotalXp);
+
+        let rewardPayload: { item: Avatar | ColorTheme | Badge, unlockId: string } | null = null;
+        let newUnlocks = player.unlocks;
+
+        let finalReward: Avatar | ColorTheme | Badge | undefined;
+
+        if (newLevel > oldLevel) {
+            for (let i = oldLevel + 1; i <= newLevel; i++) {
+                const reward = getRewardForLevel(i);
+                if (reward && !newUnlocks.includes(reward.unlockId)) {
+                    newUnlocks = [...newUnlocks, reward.unlockId];
+                    finalReward = reward.item; 
+                }
+            }
+        }
+        
+        updatePlayer(playerId, {
+            level: newLevel,
+            xp: newXp,
+            xpToNextLevel: newXpToNextLevel,
+            unlocks: newUnlocks
+        });
+
+        if (newLevel > oldLevel) {
+            return { leveledUp: true, newLevel, reward: finalReward };
+        }
+        
+        return { leveledUp: false };
+    }, [state.allPlayers, updatePlayer]);
     
     const handleSendFriendRequest = (targetId: string): boolean => {
         const newRequest: FriendRequest = {
@@ -239,6 +282,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         updatePlayer,
         addPlayer,
         removePlayer,
+        addXp,
         handleSendFriendRequest,
         handleAcceptFriendRequest,
         handleDeclineFriendRequest,
@@ -247,7 +291,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         handleOpenPrivateChat,
         handleClosePrivateChat,
         handleSendPrivateMessage,
-    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer]);
+    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp]);
 
     return (
         <SocialStoreContext.Provider value={value}>

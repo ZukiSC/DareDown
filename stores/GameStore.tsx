@@ -1,7 +1,7 @@
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
-import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby, HallOfFameEntry } from '../types';
+import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby, HallOfFameEntry, DarePack, Avatar, Badge, ColorTheme } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
@@ -12,6 +12,7 @@ import { getBadgeById } from '../services/customizationService';
 import { getRandomPowerUp, getPowerUpById } from '../services/powerUpService';
 import { useSocialStore } from './SocialStore';
 import { useUIStore } from './UIStore';
+import { XP_REWARDS } from '../services/levelingService';
 
 // --- STATE ---
 interface GameStoreState {
@@ -34,6 +35,10 @@ interface GameStoreState {
   publicLobbies: PublicLobby[];
   hallOfFame: HallOfFameEntry[];
   hallOfFameVotes: string[]; // Dare IDs the player has voted for
+  communityDarePacks: DarePack[];
+  subscribedDarePackIds: string[];
+  votedDarePackIds: string[];
+  xpSummary: { [playerId: string]: { reason: string; amount: number }[] };
 }
 
 const MOCK_HALL_OF_FAME: HallOfFameEntry[] = [
@@ -52,6 +57,27 @@ const MOCK_HALL_OF_FAME: HallOfFameEntry[] = [
         assignee: { id: 'p6', name: 'Player 6', customization: { avatarId: 'avatar_6', colorId: 'color_6', badgeId: null } },
         votes: 75
     },
+];
+
+const MOCK_DARE_PACKS: DarePack[] = [
+    {
+        id: 'pack_1', name: 'Awkward Family Dinner', description: 'Dares perfect for making your next family meal unforgettable... for all the wrong reasons.',
+        creatorId: 'p3', creatorName: 'Player 3',
+        dares: ['Only speak in questions.', 'Pretend you are a food critic reviewing the meal.', 'Refer to a sibling by the wrong name all night.'],
+        votes: 256, isOfficial: true,
+    },
+    {
+        id: 'pack_2', name: 'Cringey TikTok Dares', description: 'Unleash your inner influencer with these viral-worthy (and cringey) challenges.',
+        creatorId: 'p5', creatorName: 'Player 5',
+        dares: ['Do the latest TikTok dance trend.', 'Create a "story time" video about a boring event.', 'Record a "get ready with me" video.'],
+        votes: 189,
+    },
+    {
+        id: 'pack_3', name: '90s Nostalgia', description: 'A blast from the past! These dares will have you feeling like you are back in the 90s.',
+        creatorId: 'p8', creatorName: 'Player 8',
+        dares: ['Sing the Fresh Prince of Bel-Air theme song.', 'Try to explain what a dial-up modem sounds like.', 'Do the Macarena.'],
+        votes: 152,
+    }
 ];
 
 const initialState: GameStoreState = {
@@ -74,6 +100,10 @@ const initialState: GameStoreState = {
   publicLobbies: [],
   hallOfFame: MOCK_HALL_OF_FAME,
   hallOfFameVotes: [],
+  communityDarePacks: MOCK_DARE_PACKS,
+  subscribedDarePackIds: ['pack_1'],
+  votedDarePackIds: [],
+  xpSummary: {},
 };
 
 // --- ACTIONS ---
@@ -111,7 +141,12 @@ type Action =
   | { type: 'VIEW_PUBLIC_LOBBIES'; payload: { lobbies: PublicLobby[] } }
   | { type: 'JOIN_LOBBY'; payload: { hostId: string; playerId: string } }
   | { type: 'REFRESH_LOBBIES'; payload: { lobbies: PublicLobby[] } }
-  | { type: 'VOTE_HALL_OF_FAME'; payload: string }; // dareId
+  | { type: 'VOTE_HALL_OF_FAME'; payload: string } // dareId
+  | { type: 'SUBSCRIBE_DARE_PACK'; payload: string } // packId
+  | { type: 'VOTE_DARE_PACK'; payload: string } // packId
+  | { type: 'CREATE_DARE_PACK'; payload: Omit<DarePack, 'id' | 'votes'> }
+  | { type: 'ADD_XP_SUMMARY'; payload: { playerId: string, reason: string, amount: number } }
+  | { type: 'CLEAR_XP_SUMMARY' };
 
 
 // --- REDUCER ---
@@ -124,7 +159,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
     case 'SET_PLAYERS_IN_ROOM':
         return { ...state, playersInRoom: action.payload };
     case 'START_GAME':
-      return { ...state, gameState: GameState.MINIGAME, currentRound: 1, currentChallenge: action.payload.challenge };
+      return { ...state, gameState: GameState.MINIGAME, currentRound: 1, currentChallenge: action.payload.challenge, xpSummary: {} };
     case 'SET_MAX_ROUNDS':
       return { ...state, maxRounds: action.payload };
     // FIX: Updated reducer to set losingTeamId from the action payload.
@@ -239,6 +274,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             winningDareId: null,
             losingTeamId: null,
             teamVotes: {},
+            xpSummary: {},
         };
     case 'RETURN_TO_MENU':
         return initialState;
@@ -246,6 +282,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
         switch (state.gameState) {
             case GameState.PUBLIC_LOBBIES:
             case GameState.HALL_OF_FAME:
+            case GameState.COMMUNITY_DARES:
                 return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CATEGORY_SELECTION:
                 return { ...state, gameState: GameState.MAIN_MENU };
@@ -269,6 +306,51 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             ),
             hallOfFameVotes: [...state.hallOfFameVotes, action.payload]
         };
+    case 'SUBSCRIBE_DARE_PACK': {
+        const { payload: packId } = action;
+        const isSubscribed = state.subscribedDarePackIds.includes(packId);
+        return {
+            ...state,
+            subscribedDarePackIds: isSubscribed
+                ? state.subscribedDarePackIds.filter(id => id !== packId)
+                : [...state.subscribedDarePackIds, packId]
+        };
+    }
+    case 'VOTE_DARE_PACK': {
+        const { payload: packId } = action;
+        if (state.votedDarePackIds.includes(packId)) return state;
+        return {
+            ...state,
+            communityDarePacks: state.communityDarePacks.map(pack =>
+                pack.id === packId ? { ...pack, votes: pack.votes + 1 } : pack
+            ),
+            votedDarePackIds: [...state.votedDarePackIds, packId]
+        };
+    }
+    case 'CREATE_DARE_PACK': {
+        const newPack: DarePack = {
+            ...action.payload,
+            id: `pack_${Date.now()}`,
+            votes: 0,
+        };
+        return {
+            ...state,
+            communityDarePacks: [newPack, ...state.communityDarePacks]
+        };
+    }
+    case 'ADD_XP_SUMMARY': {
+      const { playerId, reason, amount } = action.payload;
+      const playerSummary = state.xpSummary[playerId] || [];
+      return {
+        ...state,
+        xpSummary: {
+          ...state.xpSummary,
+          [playerId]: [...playerSummary, { reason, amount }],
+        },
+      };
+    }
+    case 'CLEAR_XP_SUMMARY':
+      return { ...state, xpSummary: {} };
     default:
       return state;
   }
@@ -307,6 +389,10 @@ interface GameStoreContextType extends GameStoreState {
   handleRefreshLobbies: () => void;
   handleViewHallOfFame: () => void;
   handleVoteHallOfFame: (dareId: string) => void;
+  handleViewCommunityDares: () => void;
+  handleSubscribeDarePack: (packId: string) => void;
+  handleVoteDarePack: (packId: string) => void;
+  handleCreateDarePack: (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => void;
 }
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
@@ -337,7 +423,7 @@ const generateMockLobbies = (allPlayers: Player[], count: number): PublicLobby[]
 
 export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
-    const { currentPlayer, allPlayers, updatePlayer } = useSocialStore();
+    const { currentPlayer, allPlayers, updatePlayer, addXp } = useSocialStore();
     const { setLoading, showNotification, showUnlock, setViewingReplay } = useUIStore();
 
     // --- SELECTORS / DERIVED STATE ---
@@ -369,6 +455,11 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         playSound('winGame');
         const winner = [...players].sort((a,b) => b.score - a.score)[0];
         
+        if(winner) {
+            addXp(winner.id, XP_REWARDS.GAME_WON);
+            dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: winner.id, reason: 'Game Won!', amount: XP_REWARDS.GAME_WON } });
+        }
+
         const gameHistoryEntry: GameHistoryEntry = {
             gameId: `game_${Date.now()}`,
             date: Date.now(),
@@ -397,7 +488,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }
         
         dispatch({ type: 'END_GAME' });
-    }, [players, state.currentDare, updatePlayer, showUnlock]);
+    }, [players, state.currentDare, updatePlayer, showUnlock, addXp]);
 
     const handleNextRound = useCallback(() => {
         const potentialRecipients = players.filter(p => p.id !== state.roundLoserId);
@@ -453,6 +544,11 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     }, [roundLoser, state.gameState, state.dareMode, generateAndShowDare]);
 
     const handleMiniGameEnd = useCallback((playerScores: Map<string, number>, challengeType: MiniGameType) => {
+        players.forEach(p => {
+            addXp(p.id, XP_REWARDS.GAME_PLAYED);
+            dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: p.id, reason: 'Played a round', amount: XP_REWARDS.GAME_PLAYED } });
+        });
+
         const teamScores = { blue: { totalScore: 0, playerCount: 0 }, orange: { totalScore: 0, playerCount: 0 } };
         
         for (const player of players) {
@@ -491,7 +587,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         } else {
             handleNextRound();
         }
-    }, [players, handleNextRound]);
+    }, [players, handleNextRound, addXp]);
 
     const handleSuddenDeathEnd = (loserId: string) => {
         const loserPlayer = players.find(p => p.id === loserId);
@@ -518,6 +614,11 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     
     const handleProofVote = useCallback((passed: boolean) => {
         if (roundLoser && state.currentDare) {
+            if (passed) {
+                addXp(roundLoser.id, XP_REWARDS.DARE_COMPLETED);
+                dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: roundLoser.id, reason: 'Dare Completed', amount: XP_REWARDS.DARE_COMPLETED } });
+            }
+
             const newStatus = passed ? 'completed' : 'failed';
             const completedDare: Dare = { ...state.currentDare, status: newStatus };
             dispatch({ type: 'COMPLETE_DARE', payload: { dare: completedDare, passed } });
@@ -549,7 +650,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             }
         }
         setTimeout(() => handleNextRound(), 5000);
-    }, [roundLoser, state.currentDare, updatePlayer, players, handleNextRound, showUnlock]);
+    }, [roundLoser, state.currentDare, updatePlayer, players, handleNextRound, showUnlock, addXp]);
 
 
     const handleUsePowerUp = (powerUpId: PowerUpType) => {
@@ -740,7 +841,26 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
 
     const handleViewHallOfFame = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.HALL_OF_FAME });
     
-    const handleVoteHallOfFame = (dareId: string) => dispatch({ type: 'VOTE_HALL_OF_FAME', payload: dareId });
+    const handleVoteHallOfFame = (dareId: string) => {
+        const entry = state.hallOfFame.find(e => e.dare.id === dareId);
+        if (entry) {
+            addXp(entry.assignee.id, XP_REWARDS.REPLAY_VOTE);
+        }
+        dispatch({ type: 'VOTE_HALL_OF_FAME', payload: dareId });
+    };
+
+    const handleViewCommunityDares = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMMUNITY_DARES });
+    const handleSubscribeDarePack = (packId: string) => dispatch({ type: 'SUBSCRIBE_DARE_PACK', payload: packId });
+    const handleVoteDarePack = (packId: string) => dispatch({ type: 'VOTE_DARE_PACK', payload: packId });
+    const handleCreateDarePack = (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => {
+        if (!currentPlayer) return;
+        const fullPackData = {
+            ...packData,
+            creatorId: currentPlayer.id,
+            creatorName: currentPlayer.name,
+        };
+        dispatch({ type: 'CREATE_DARE_PACK', payload: fullPackData });
+    };
 
     const value = useMemo(() => ({
         ...state,
@@ -775,7 +895,11 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleRefreshLobbies,
         handleViewHallOfFame,
         handleVoteHallOfFame,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers]);
+        handleViewCommunityDares,
+        handleSubscribeDarePack,
+        handleVoteDarePack,
+        handleCreateDarePack,
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleQuickJoin, handleRefreshLobbies, handleJoinPublicLobby, handleViewPublicLobbies, handleVoteHallOfFame, handleViewHallOfFame]);
 
     return (
         <GameStoreContext.Provider value={value}>

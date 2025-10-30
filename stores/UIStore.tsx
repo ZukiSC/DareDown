@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
-import { Player, Dare, Badge, PowerUp, FloatingGreeting } from '../types';
+import { Player, Dare, Badge, PowerUp, FloatingGreeting, Avatar, ColorTheme } from '../types';
 import { preloadSounds, toggleMute } from '../services/audioService';
 import { requestNotificationPermission } from '../services/notificationService';
 import { useSocialStore } from './SocialStore';
@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 
 type ActiveReaction = { id: string; playerId: string; emoji: string };
 type LoadingState = { active: boolean; message: string };
+type LevelUpModalData = { level: number, reward: Avatar | ColorTheme | Badge };
 
 // --- STATE ---
 interface UIStoreState {
@@ -21,6 +22,7 @@ interface UIStoreState {
   isArchiveOpen: boolean;
   viewingReplay: Dare | null;
   greetings: FloatingGreeting[];
+  levelUpModalData: LevelUpModalData | null;
 }
 
 const initialState: UIStoreState = {
@@ -35,6 +37,7 @@ const initialState: UIStoreState = {
   isArchiveOpen: false,
   viewingReplay: null,
   greetings: [],
+  levelUpModalData: null,
 };
 
 // --- ACTIONS ---
@@ -52,7 +55,9 @@ type Action =
   | { type: 'SET_ARCHIVE_OPEN'; payload: boolean }
   | { type: 'SET_VIEWING_REPLAY'; payload: Dare | null }
   | { type: 'ADD_GREETING'; payload: FloatingGreeting }
-  | { type: 'REMOVE_GREETING'; payload: string };
+  | { type: 'REMOVE_GREETING'; payload: string }
+  | { type: 'SHOW_LEVEL_UP_MODAL'; payload: LevelUpModalData }
+  | { type: 'HIDE_LEVEL_UP_MODAL' };
 
 // --- REDUCER ---
 const uiReducer = (state: UIStoreState, action: Action): UIStoreState => {
@@ -85,6 +90,10 @@ const uiReducer = (state: UIStoreState, action: Action): UIStoreState => {
         return { ...state, greetings: [...state.greetings, action.payload] };
     case 'REMOVE_GREETING':
         return { ...state, greetings: state.greetings.filter(g => g.id !== action.payload) };
+    case 'SHOW_LEVEL_UP_MODAL':
+      return { ...state, levelUpModalData: action.payload };
+    case 'HIDE_LEVEL_UP_MODAL':
+      return { ...state, levelUpModalData: null };
     default:
       return state;
   }
@@ -96,6 +105,8 @@ interface UIStoreContextType extends UIStoreState {
     setLoading: (loading: LoadingState) => void;
     showNotification: (message: string, emoji?: string) => void;
     showUnlock: (item: Badge | PowerUp) => void;
+    showLevelUpNotification: (data: LevelUpModalData) => void;
+    hideLevelUpNotification: () => void;
     handleToggleMute: () => void;
     handleEmojiReaction: (emoji: string) => void;
     handleRequestNotifications: () => Promise<void>;
@@ -146,6 +157,14 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         setTimeout(() => dispatch({ type: 'HIDE_UNLOCK' }), 4000);
     }, []);
 
+    const showLevelUpNotification = useCallback((data: LevelUpModalData) => {
+        dispatch({ type: 'SHOW_LEVEL_UP_MODAL', payload: data });
+    }, []);
+
+    const hideLevelUpNotification = useCallback(() => {
+        dispatch({ type: 'HIDE_LEVEL_UP_MODAL' });
+    }, []);
+
     const handleToggleMute = () => {
         const newMutedState = !state.isMuted;
         dispatch({ type: 'TOGGLE_MUTE', payload: newMutedState });
@@ -188,6 +207,8 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         setLoading,
         showNotification,
         showUnlock,
+        showLevelUpNotification,
+        hideLevelUpNotification,
         handleToggleMute,
         handleEmojiReaction,
         handleRequestNotifications,
@@ -198,7 +219,7 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         setViewingProfile: (player: Player | null) => dispatch({ type: 'SET_VIEWING_PROFILE', payload: player?.id || null }),
         setIsArchiveOpen: (isOpen: boolean) => dispatch({ type: 'SET_ARCHIVE_OPEN', payload: isOpen }),
         setViewingReplay: (dare: Dare | null) => dispatch({ type: 'SET_VIEWING_REPLAY', payload: dare }),
-    }), [state, viewingProfile, setLoading, showNotification, showUnlock]);
+    }), [state, viewingProfile, setLoading, showNotification, showUnlock, showLevelUpNotification, hideLevelUpNotification]);
 
     return (
         <UIStoreContext.Provider value={value}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
@@ -24,11 +24,14 @@ import GameEndScreen from './components/GameEndScreen';
 import TeamDareVoteScreen from './components/TeamDareVoteScreen';
 import PublicLobbiesScreen from './components/PublicLobbiesScreen';
 import HallOfFameScreen from './components/HallOfFameScreen';
+import CommunityDaresScreen from './components/CommunityDaresScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
 import { UIStoreProvider, useUIStore } from './stores/UIStore';
 import { GameStoreProvider, useGameStore } from './stores/GameStore';
+import LevelUpModal from './components/LevelUpModal';
+import { getRewardForLevel } from './services/levelingService';
 
 
 const AppContent = () => {
@@ -37,7 +40,8 @@ const AppContent = () => {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
         dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies,
-        hallOfFame, hallOfFameVotes
+        hallOfFame, hallOfFameVotes, communityDarePacks, subscribedDarePackIds, votedDarePackIds,
+        xpSummary
     } = useGameStore();
 
     const {
@@ -47,7 +51,7 @@ const AppContent = () => {
     // FIX: Destructure `newUnlock` from the UI store to display the unlock notification.
     const {
         loadingState, isMuted, isChatOpen, isFriendsPanelOpen, viewingProfile, 
-        isArchiveOpen, viewingReplay, greetings, newUnlock
+        isArchiveOpen, viewingReplay, greetings, newUnlock, levelUpModalData
     } = useUIStore();
 
     // --- HANDLERS FROM STORES ---
@@ -58,7 +62,8 @@ const AppContent = () => {
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
         handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote,
         handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies,
-        handleViewHallOfFame, handleVoteHallOfFame
+        handleViewHallOfFame, handleVoteHallOfFame,
+        handleViewCommunityDares, handleSubscribeDarePack, handleVoteDarePack, handleCreateDarePack
     } = useGameStore();
 
     const {
@@ -70,8 +75,22 @@ const AppContent = () => {
     const {
         handleToggleMute, handleEmojiReaction, setIsChatOpen, setIsFriendsPanelOpen,
         handleViewProfile, setViewingProfile, setIsArchiveOpen, setViewingReplay, handleSendGreeting,
-        showNotification
+        showNotification, showLevelUpNotification, hideLevelUpNotification
     } = useUIStore();
+    
+    // --- LEVEL UP EFFECT ---
+    const prevLevelRef = useRef(currentPlayer?.level);
+    useEffect(() => {
+      if (currentPlayer && prevLevelRef.current !== undefined && currentPlayer.level > prevLevelRef.current) {
+        const reward = getRewardForLevel(currentPlayer.level);
+        if (reward) {
+          showLevelUpNotification({ level: currentPlayer.level, reward: reward.item });
+        }
+      }
+      if (currentPlayer) {
+        prevLevelRef.current = currentPlayer.level;
+      }
+    }, [currentPlayer?.level, showLevelUpNotification, currentPlayer]);
     
     // --- AUGMENTED HANDLERS to connect stores ---
     const augmentedSendFriendRequest = (targetId: string) => {
@@ -107,11 +126,22 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} />;
                 case GameState.PUBLIC_LOBBIES:
                     return <PublicLobbiesScreen lobbies={publicLobbies} onJoin={handleJoinPublicLobby} onQuickJoin={handleQuickJoin} onRefresh={handleRefreshLobbies} onGoBack={handleGoBack} />;
                 case GameState.HALL_OF_FAME:
                     return <HallOfFameScreen entries={hallOfFame} onVote={handleVoteHallOfFame} votedIds={hallOfFameVotes} onViewReplay={handleViewReplay} onGoBack={handleGoBack} />;
+                case GameState.COMMUNITY_DARES:
+                    return <CommunityDaresScreen
+                        packs={communityDarePacks}
+                        subscribedIds={subscribedDarePackIds}
+                        votedIds={votedDarePackIds}
+                        currentPlayerId={currentPlayer.id}
+                        onSubscribe={handleSubscribeDarePack}
+                        onVote={handleVoteDarePack}
+                        onCreate={handleCreateDarePack}
+                        onGoBack={handleGoBack}
+                    />;
                 case GameState.CATEGORY_SELECTION:
                     return <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={handleGoBack} />;
                 case GameState.CUSTOMIZATION:
@@ -150,9 +180,9 @@ const AppContent = () => {
                 case GameState.LEADERBOARD:
                     return <Leaderboard players={players} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
                 case GameState.GAME_END:
-                    return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} />;
+                    return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} xpSummary={xpSummary[currentPlayer.id] || []} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} />;
                 }
             })()}
             </div>
@@ -160,7 +190,7 @@ const AppContent = () => {
     };
   
     const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.HALL_OF_FAME, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
+    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.HALL_OF_FAME, GameState.COMMUNITY_DARES, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
 
     if (!currentPlayer) {
         return (
@@ -294,6 +324,13 @@ const AppContent = () => {
                 dare={viewingReplay}
                 player={allPlayers.find(p => p.id === viewingReplay.assigneeId) || hallOfFame.find(e => e.dare.id === viewingReplay.id)?.assignee}
                 onClose={() => setViewingReplay(null)}
+            />
+        )}
+
+        {levelUpModalData && (
+            <LevelUpModal
+                data={levelUpModalData}
+                onClose={hideLevelUpNotification}
             />
         )}
         </div>
