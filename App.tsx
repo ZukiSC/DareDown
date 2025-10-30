@@ -42,9 +42,10 @@ const AppContent = () => {
         currentPlayer, allPlayers, chatMessages, privateChats
     } = useSocialStore();
 
+    // FIX: Destructure `newUnlock` from the UI store to display the unlock notification.
     const {
-        loadingState, isMuted, activeReactions, newUnlock, notificationPermission, isChatOpen,
-        isFriendsPanelOpen, viewingProfile, isArchiveOpen, viewingReplay, greetings
+        loadingState, isMuted, isChatOpen, isFriendsPanelOpen, viewingProfile, 
+        isArchiveOpen, viewingReplay, greetings, newUnlock
     } = useUIStore();
 
     // --- HANDLERS FROM STORES ---
@@ -63,7 +64,7 @@ const AppContent = () => {
     } = useSocialStore();
 
     const {
-        handleToggleMute, handleEmojiReaction, handleRequestNotifications, setIsFriendsPanelOpen,
+        handleToggleMute, handleEmojiReaction, setIsChatOpen, setIsFriendsPanelOpen,
         handleViewProfile, setViewingProfile, setIsArchiveOpen, setViewingReplay, handleSendGreeting,
         showNotification
     } = useUIStore();
@@ -88,7 +89,7 @@ const AppContent = () => {
         if (isSwappingCategory) {
             return (
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in">
-                    <div className="w-full max-w-4xl h-[85vh] bg-gray-800 rounded-2xl p-8">
+                    <div className="w-full h-full bg-gray-800 p-8">
                          <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={() => {}} />
                     </div>
                 </div>
@@ -112,9 +113,6 @@ const AppContent = () => {
                         players={players} 
                         currentPlayer={currentPlayer} 
                         onStartGame={handleStartGame} 
-                        reactions={activeReactions} 
-                        notificationPermission={notificationPermission} 
-                        onRequestNotifications={handleRequestNotifications} 
                         onViewProfile={handleViewProfile} 
                         showNotification={showNotification}
                         onKickPlayer={handleKickPlayer}
@@ -126,7 +124,7 @@ const AppContent = () => {
                         onJoinTeam={handleJoinTeam}
                     />;
                 case GameState.MINIGAME:
-                    return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} reactions={activeReactions} extraTime={extraTime} onViewProfile={handleViewProfile} />;
+                    return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} extraTime={extraTime} onViewProfile={handleViewProfile} />;
                 case GameState.SUDDEN_DEATH:
                     return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} onViewProfile={handleViewProfile}/>;
                 case GameState.TEAM_DARE_VOTE:
@@ -136,13 +134,13 @@ const AppContent = () => {
                 case GameState.DARE_VOTING:
                     return <DareVotingScreen dares={submittedDares} players={players} onVote={handleDareVote} winningDareId={winningDareId} />;
                 case GameState.DARE_SCREEN:
-                    return <DareScreen loser={roundLoser} dare={currentDare} onStartLiveDare={handleStartLiveDare} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} />;
+                    return <DareScreen loser={roundLoser} dare={currentDare} onStartLiveDare={handleStartLiveDare} currentPlayer={currentPlayer} />;
                 case GameState.DARE_LIVE_STREAM:
-                    return <LiveDareView dare={currentDare} loser={roundLoser} onStreamEnd={handleStreamEnd} currentPlayer={currentPlayer} reactions={activeReactions} greetings={greetings} onSendGreeting={handleSendGreeting} />;
+                    return <LiveDareView dare={currentDare} loser={roundLoser} onStreamEnd={handleStreamEnd} currentPlayer={currentPlayer} greetings={greetings} onSendGreeting={handleSendGreeting} />;
                 case GameState.DARE_PROOF:
                     return <DareProofScreen dare={currentDare} loser={roundLoser} onVote={handleProofVote} currentPlayerId={currentPlayer.id} />;
                 case GameState.LEADERBOARD:
-                    return <Leaderboard players={players} onUsePowerUp={handleUsePowerUp} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
+                    return <Leaderboard players={players} currentPlayer={currentPlayer} onViewProfile={handleViewProfile} currentDare={currentDare} onViewReplay={handleViewReplay}/>;
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} />;
                 default:
@@ -153,9 +151,8 @@ const AppContent = () => {
         );
     };
   
-    const showEmojiPanel = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY].includes(gameState);
-    const showPowerUpPanel = [GameState.MINIGAME, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatPanel = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
+    const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
+    const showChatButton = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
 
     if (!currentPlayer) {
         return (
@@ -167,9 +164,9 @@ const AppContent = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
+        <div className="h-full bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
         <Toaster
-            position="top-right"
+            position="top-center"
             toastOptions={{
                 className: '',
                 style: {
@@ -181,63 +178,61 @@ const AppContent = () => {
             }}
         />
         <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
-            <div className="text-2xl font-bold text-white drop-shadow-lg">DareDown</div>
             {gameState !== GameState.MAIN_MENU && (
                 <>
-                    <button onClick={() => setIsFriendsPanelOpen(true)} className="px-4 py-2 text-sm font-semibold rounded-full bg-purple-500/70 hover:bg-purple-500/90 transition-colors transform active:scale-95">
-                        Social 💬
+                    <button onClick={() => setIsFriendsPanelOpen(true)} className="px-3 py-1.5 text-xs font-semibold rounded-full bg-purple-500/70 hover:bg-purple-500/90 transition-colors transform active:scale-95">
+                        Social
                     </button>
-                    <button onClick={() => setIsArchiveOpen(true)} className="px-4 py-2 text-sm font-semibold rounded-full bg-blue-500/70 hover:bg-blue-500/90 transition-colors transform active:scale-95">
-                        Dare Archive 📼
+                    <button onClick={() => setIsArchiveOpen(true)} className="px-3 py-1.5 text-xs font-semibold rounded-full bg-blue-500/70 hover:bg-blue-500/90 transition-colors transform active:scale-95">
+                        Archive
                     </button>
                 </>
             )}
         </div>
-        <button onClick={handleToggleMute} className="absolute top-4 right-4 text-2xl p-2 rounded-full bg-purple-500/50 hover:bg-purple-500/80 transition-colors z-20" aria-label={isMuted ? 'Unmute' : 'Mute'}>
-            {isMuted ? '🔇' : '🔊'}
-        </button>
-        
-        <div className="relative w-full max-w-7xl flex flex-col lg:flex-row gap-4 items-start justify-center">
-            <main className="relative w-full lg:max-w-4xl h-[90vh] lg:h-[85vh] bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30 overflow-hidden">
-            {loadingState.active ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
-                <p className="mt-4 text-xl text-gray-300">{loadingState.message}</p>
-                </div>
-            ) : (
-                renderContent()
-            )}
-            </main>
-            
-            <div className="hidden lg:block">
-                {showChatPanel && (
-                    <ChatPanel messages={chatMessages} onSendMessage={handleSendMessage} onReactToMessage={handleReactToMessage} currentPlayerId={currentPlayer.id} />
-                )}
-            </div>
+         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+            <h1 className="text-xl font-bold text-white drop-shadow-lg">DareDown</h1>
+            <button onClick={handleToggleMute} className="text-xl p-2 rounded-full bg-purple-500/50 hover:bg-purple-500/80 transition-colors" aria-label={isMuted ? 'Unmute' : 'Mute'}>
+                {isMuted ? '🔇' : '🔊'}
+            </button>
         </div>
         
-        {showChatPanel && (
+        <main className="relative w-full h-full max-w-7xl flex flex-col items-start justify-center bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30 overflow-hidden mt-12">
+        {loadingState.active ? (
+            <div className="flex flex-col items-center justify-center h-full w-full">
+            <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
+            <p className="mt-4 text-xl text-gray-300">{loadingState.message}</p>
+            </div>
+        ) : (
+            renderContent()
+        )}
+        </main>
+        
+        {showBottomBar && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-sm flex justify-center items-center z-30">
+                <PowerUpPanel player={currentPlayer} onUsePowerUp={handleUsePowerUp} gameState={gameState} isLoser={currentPlayer.id === roundLoser?.id} />
+                <EmojiReactionPanel onReact={handleEmojiReaction} />
+            </div>
+        )}
+
+        {showChatButton && (
             <>
-                <button onClick={() => useUIStore.getState().setIsChatOpen(true)} className="lg:hidden fixed bottom-24 right-4 bg-purple-600 rounded-full p-3 shadow-lg z-30 animate-pulse" aria-label="Open Chat">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button onClick={() => setIsChatOpen(true)} className="fixed bottom-4 right-4 bg-purple-600 rounded-full p-3 shadow-lg z-30 animate-pulse" aria-label="Open Chat">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                 </button>
                 {isChatOpen && (
-                    <div className="lg:hidden fixed inset-0 bg-black/60 z-40 animate-fade-in" onClick={() => useUIStore.getState().setIsChatOpen(false)}>
+                    <div className="fixed inset-0 bg-black/60 z-40 animate-fade-in" onClick={() => setIsChatOpen(false)}>
                         <div 
-                            className="absolute bottom-0 left-0 right-0 h-[60vh] bg-gray-900/90 backdrop-blur-md z-40 animate-slide-in-up p-4 rounded-t-2xl border-t-2 border-purple-500/50"
+                            className="absolute bottom-0 left-0 right-0 h-[75vh] bg-gray-900/90 backdrop-blur-md z-40 animate-slide-in-up p-4 rounded-t-2xl border-t-2 border-purple-500/50"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <ChatPanel messages={chatMessages} onSendMessage={handleSendMessage} onReactToMessage={handleReactToMessage} currentPlayerId={currentPlayer.id} onClose={() => useUIStore.getState().setIsChatOpen(false)} />
+                            <ChatPanel messages={chatMessages} onSendMessage={handleSendMessage} onReactToMessage={handleReactToMessage} currentPlayerId={currentPlayer.id} onClose={() => setIsChatOpen(false)} />
                         </div>
                     </div>
                 )}
             </>
         )}
-
-        {showEmojiPanel && <EmojiReactionPanel onReact={handleEmojiReaction} />}
-        {showPowerUpPanel && <PowerUpPanel player={currentPlayer} onUsePowerUp={handleUsePowerUp} gameState={gameState} isLoser={currentPlayer.id === roundLoser?.id} />}
 
         {isFriendsPanelOpen && (
             <FriendsPanel

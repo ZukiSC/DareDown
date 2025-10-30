@@ -11,6 +11,13 @@
     <style>
       body {
         font-family: 'Poppins', sans-serif;
+        overscroll-behavior: none;
+      }
+      html, body, #root {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
       }
 
       /* --- Global UI Animations --- */
@@ -71,12 +78,10 @@
       }
       @keyframes slide-in-up {
         from {
-          transform: translateY(50px);
-          opacity: 0;
+          transform: translateY(100%);
         }
         to {
           transform: translateY(0);
-          opacity: 1;
         }
       }
       .animate-slide-in-up {

@@ -1,4 +1,4 @@
-export type Category = 'General' | 'Programming' | 'Trivia' | 'Speed/Reflex';
+export type Category = 'General' | 'Programming' | 'Trivia' | 'Speed/Reflex' | 'Wordplay' | 'Puzzles' | 'Creative';
 
 export interface PlayerCustomization {
     avatarId: string;
@@ -82,7 +82,7 @@ export enum GameState {
   GAME_END = 'GAME_END',
 }
 
-export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE' | 'MEMORY_MATCH' | 'DOODLE_DOWN' | 'RHYTHM_RUSH' | 'SPOT_THE_DIFFERENCE';
+export type MiniGameType = 'QUICK_QUIZ' | 'TAP_SPEED' | 'NUMBER_RACE' | 'MEMORY_MATCH' | 'DOODLE_DOWN' | 'RHYTHM_RUSH' | 'SPOT_THE_DIFFERENCE' | 'WORD_SCRAMBLE' | 'EMOJI_PUZZLE';
 
 export interface QuizQuestion {
   question: string;

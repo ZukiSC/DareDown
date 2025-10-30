@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Player, Dare, FloatingGreeting } from '../types';
 import { rtcService } from '../services/rtcService';
+import { useUIStore } from '../stores/UIStore';
 
 interface LiveDareViewProps {
   dare: Dare | null;
   loser: Player | null;
   onStreamEnd: (replayUrl?: string) => void;
   currentPlayer: Player;
-  reactions: { id: string; playerId: string; emoji: string }[];
   greetings: FloatingGreeting[];
   onSendGreeting: (content: string) => void;
 }
@@ -50,11 +50,12 @@ const GreetingSender: React.FC<{ onSend: (text: string) => void }> = ({ onSend }
   );
 };
 
-const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onStreamEnd, currentPlayer, reactions, greetings, onSendGreeting }) => {
+const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onStreamEnd, currentPlayer, greetings, onSendGreeting }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { activeReactions } = useUIStore();
 
   const isLoser = loser?.id === currentPlayer.id;
 
@@ -134,7 +135,7 @@ const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onStreamEnd, c
 
       {/* Floating Reactions & Greetings */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {reactions.map(reaction => (
+        {activeReactions.map(reaction => (
           <div key={reaction.id} className="absolute bottom-4 animate-float-up" style={{ left: `${Math.random() * 80 + 10}%`, animationDuration: '3s' }}>
             <span className="text-5xl drop-shadow-lg">{reaction.emoji}</span>
           </div>
@@ -176,11 +177,6 @@ const LiveDareView: React.FC<LiveDareViewProps> = ({ dare, loser, onStreamEnd, c
               <GreetingSender onSend={onSendGreeting} />
           </div>
         )}
-         {/* Placeholder for safety/extra features */}
-         <div className="absolute bottom-2 right-2 flex gap-2">
-             <button title="Report Stream (Placeholder)" className="text-xs p-1 bg-gray-700/50 rounded hover:bg-gray-600">Report</button>
-             <button title="Toggle Background Blur (Placeholder)" className="text-xs p-1 bg-gray-700/50 rounded hover:bg-gray-600">Blur BG</button>
-         </div>
       </div>
     </div>
   );

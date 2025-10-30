@@ -216,32 +216,6 @@ export const useUIStore = () => {
     return context;
 };
 
-// Zustand-like getter for outside React components
-let state = initialState;
-const listeners = new Set<() => void>();
-const store = {
-    getState: () => state,
-    setState: (newState: UIStoreState) => {
-        state = newState;
-        listeners.forEach(l => l());
-    },
-    subscribe: (listener: () => void) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-    }
-};
-
-// A simplified store getter for the setIsChatOpen action which is used in a button
-// This is a workaround to avoid wrapping that specific part of the UI in a consumer
-// In a full Zustand/Redux setup, this is handled more elegantly.
-useUIStore.getState = () => ({
-    setIsChatOpen: (isOpen: boolean) => {
-        const action: Action = { type: 'SET_CHAT_OPEN', payload: isOpen };
-        // This won't trigger re-renders, it's a simplified example.
-        // The main context handles the actual state changes for React components.
-        // A full implementation would require connecting this to the reducer dispatch.
-    },
-     showNotification: (message: string, emoji?: string) => {
-        // This is now handled by the main context provider and react-hot-toast
-     }
-});
+// This getter is simplified, as direct state manipulation outside of the provider/reducer
+// context is complex to manage correctly without a full state management library.
+useUIStore.getState = () => {};

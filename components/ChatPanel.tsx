@@ -29,12 +29,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReactT
   };
 
   return (
-    <div className="w-full h-full lg:w-80 lg:h-[85vh] backdrop-blur-sm rounded-2xl border border-purple-500/30 flex flex-col p-3">
+    <div className="w-full h-full flex flex-col p-1">
       <div className="flex justify-between items-center mb-3 border-b border-purple-500/30 pb-2">
-         <h2 className="text-xl font-bold text-purple-400 text-center flex-grow">Room Chat</h2>
          {onClose && (
             <button onClick={onClose} className="text-2xl text-gray-400 hover:text-white">&times;</button>
          )}
+         <h2 className="text-xl font-bold text-purple-400 text-center flex-grow">Room Chat</h2>
+         <div className="w-6"></div>
       </div>
       <div className="flex-grow overflow-y-auto pr-2 space-y-4">
         {messages.map(msg => (

@@ -1,4 +1,5 @@
 
+
 import { Category, Challenge, QuizQuestion } from '../types';
 
 // This acts as a mock database for all possible challenges in the game.
@@ -14,13 +15,23 @@ const CHALLENGE_DATABASE: Challenge[] = [
     { id: 'p2', type: 'QUICK_QUIZ', category: 'Programming', content: { question: "Which symbol is used for comments in JavaScript?", options: ["//", "/* */", "#", "Both // and /* */"], correctAnswer: "Both // and /* */" } as QuizQuestion },
     { id: 'p3', type: 'QUICK_QUIZ', category: 'Programming', content: { question: "What is the correct HTML for inserting an image?", options: ["<img src='url'>", "<image href='url'>", "<img>url</img>", "<pic src='url'>"], correctAnswer: "<img src='url'>" } as QuizQuestion },
 
+    // Wordplay
+    { id: 'w1', type: 'WORD_SCRAMBLE', category: 'Wordplay', content: { scrambled: 'TCREA', original: 'REACT' } },
+    { id: 'w2', type: 'WORD_SCRAMBLE', category: 'Wordplay', content: { scrambled: 'PSTRYCIETP', original: 'TYPESCRIPT' } },
+
+    // Puzzles
+    { id: 'pz1', type: 'EMOJI_PUZZLE', category: 'Puzzles', content: { emojis: '🕷️👨➡️🕸️', answer: 'Spider-Man', hint: 'Superhero Movie' } },
+    { id: 'pz2', type: 'EMOJI_PUZZLE', category: 'Puzzles', content: { emojis: '🚢🧊💔', answer: 'Titanic', hint: 'Movie Title' } },
+
+    // Creative
+    { id: 'c1', type: 'DOODLE_DOWN', category: 'Creative', content: { word: 'House' } },
+    { id: 'c2', type: 'DOODLE_DOWN', category: 'Creative', content: { word: 'Pizza' } },
+
     // General (can include any type)
     { id: 'g1', type: 'QUICK_QUIZ', category: 'General', content: { question: "What is 2 + 2 * 2?", options: ["8", "6", "4", "2"], correctAnswer: "6" } as QuizQuestion },
     { id: 'g2', type: 'TAP_SPEED', category: 'General', content: {} },
     { id: 'g3', type: 'NUMBER_RACE', category: 'General', content: {} },
     { id: 'g4', type: 'MEMORY_MATCH', category: 'General', content: { pairCount: 6 } }, // 6 pairs = 12 cards
-    { id: 'g5', type: 'DOODLE_DOWN', category: 'General', content: { word: 'House' } },
-    { id: 'g6', type: 'DOODLE_DOWN', category: 'General', content: { word: 'Pizza' } },
     { id: 'g7', type: 'SPOT_THE_DIFFERENCE', category: 'General', content: { 
         imageA: 'https://i.imgur.com/p51s24s.png', 
         imageB: 'https://i.imgur.com/k16z3E5.png',

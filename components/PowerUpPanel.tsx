@@ -28,7 +28,7 @@ const PowerUpPanel: React.FC<PowerUpPanelProps> = ({ player, onUsePowerUp, gameS
   }
 
   return (
-    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-gray-900/80 backdrop-blur-md p-2 rounded-full shadow-lg flex gap-2">
+    <div className="bg-gray-900/80 backdrop-blur-md p-1.5 rounded-full shadow-lg flex gap-1">
       {player.powerUps.map((powerUpId, index) => {
         const powerUp = getPowerUpById(powerUpId);
         if (!powerUp) return null;
@@ -38,13 +38,13 @@ const PowerUpPanel: React.FC<PowerUpPanelProps> = ({ player, onUsePowerUp, gameS
         return (
           <button 
             key={`${powerUp.id}-${index}`}
-            onClick={() => onUsePowerUp(powerUp.id)}
+            onClick={() => !isDisabled && onUsePowerUp(powerUp.id)}
             disabled={isDisabled}
-            className={`flex items-center gap-2 p-2 rounded-full transition-all transform hover:scale-105 ${isDisabled ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 active:scale-100'}`}
+            className={`flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-all transform ${isDisabled ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 active:scale-95 hover:scale-105'}`}
             title={`${powerUp.name}: ${powerUp.description}`}
             aria-label={`Use ${powerUp.name}`}
           >
-            <span className="text-2xl">{powerUp.emoji}</span>
+            <span className="text-xl sm:text-2xl">{powerUp.emoji}</span>
           </button>
         );
       })}
