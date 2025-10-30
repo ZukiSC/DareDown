@@ -1,7 +1,7 @@
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
-import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby } from '../types';
+import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby, HallOfFameEntry } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
@@ -32,7 +32,27 @@ interface GameStoreState {
   submittedDares: Dare[];
   winningDareId: string | null;
   publicLobbies: PublicLobby[];
+  hallOfFame: HallOfFameEntry[];
+  hallOfFameVotes: string[]; // Dare IDs the player has voted for
 }
+
+const MOCK_HALL_OF_FAME: HallOfFameEntry[] = [
+    {
+        dare: { id: 'hof_dare_1', text: "Sing everything you say for the next 5 minutes like an opera star.", assigneeId: 'p2', status: 'completed', replayUrl: 'mock-hof-replay-1.mp4'},
+        assignee: { id: 'p2', name: 'Player 2', customization: { avatarId: 'avatar_2', colorId: 'color_2', badgeId: null } },
+        votes: 127
+    },
+    {
+        dare: { id: 'hof_dare_2', text: "Do your best impression of a chicken laying an egg.", assigneeId: 'p4', status: 'completed', replayUrl: 'mock-hof-replay-2.mp4' },
+        assignee: { id: 'p4', name: 'Player 4', customization: { avatarId: 'avatar_4', colorId: 'color_4', badgeId: 'badge_winner' } },
+        votes: 98
+    },
+    {
+        dare: { id: 'hof_dare_3', text: "Create a hat out of toilet paper and wear it for the rest of the game.", assigneeId: 'p6', status: 'completed', replayUrl: 'mock-hof-replay-3.mp4' },
+        assignee: { id: 'p6', name: 'Player 6', customization: { avatarId: 'avatar_6', colorId: 'color_6', badgeId: null } },
+        votes: 75
+    },
+];
 
 const initialState: GameStoreState = {
   gameState: GameState.MAIN_MENU,
@@ -52,6 +72,8 @@ const initialState: GameStoreState = {
   submittedDares: [],
   winningDareId: null,
   publicLobbies: [],
+  hallOfFame: MOCK_HALL_OF_FAME,
+  hallOfFameVotes: [],
 };
 
 // --- ACTIONS ---
@@ -88,7 +110,8 @@ type Action =
   | { type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: Player[] } }
   | { type: 'VIEW_PUBLIC_LOBBIES'; payload: { lobbies: PublicLobby[] } }
   | { type: 'JOIN_LOBBY'; payload: { hostId: string; playerId: string } }
-  | { type: 'REFRESH_LOBBIES'; payload: { lobbies: PublicLobby[] } };
+  | { type: 'REFRESH_LOBBIES'; payload: { lobbies: PublicLobby[] } }
+  | { type: 'VOTE_HALL_OF_FAME'; payload: string }; // dareId
 
 
 // --- REDUCER ---
@@ -222,6 +245,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
     case 'GO_BACK':
         switch (state.gameState) {
             case GameState.PUBLIC_LOBBIES:
+            case GameState.HALL_OF_FAME:
                 return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CATEGORY_SELECTION:
                 return { ...state, gameState: GameState.MAIN_MENU };
@@ -236,6 +260,15 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
         return { ...state, gameState: GameState.LOBBY, playersInRoom: [action.payload.hostId, action.payload.playerId] };
     case 'REFRESH_LOBBIES':
         return { ...state, publicLobbies: action.payload.lobbies };
+    case 'VOTE_HALL_OF_FAME':
+        if (state.hallOfFameVotes.includes(action.payload)) return state;
+        return {
+            ...state,
+            hallOfFame: state.hallOfFame.map(entry => 
+                entry.dare.id === action.payload ? { ...entry, votes: entry.votes + 1 } : entry
+            ),
+            hallOfFameVotes: [...state.hallOfFameVotes, action.payload]
+        };
     default:
       return state;
   }
@@ -272,6 +305,8 @@ interface GameStoreContextType extends GameStoreState {
   handleJoinPublicLobby: (lobbyId: string) => void;
   handleQuickJoin: () => void;
   handleRefreshLobbies: () => void;
+  handleViewHallOfFame: () => void;
+  handleVoteHallOfFame: (dareId: string) => void;
 }
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
@@ -681,7 +716,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleViewReplay = (dareId: string) => {
-        const dareToPlay = state.dareArchive.find(d => d.id === dareId);
+        const dareToPlay = [...state.dareArchive, ...state.hallOfFame.map(e => e.dare)].find(d => d.id === dareId);
         if (dareToPlay) {
             setViewingReplay(dareToPlay);
         }
@@ -702,6 +737,10 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const handleGoBack = () => {
         dispatch({ type: 'GO_BACK' });
     };
+
+    const handleViewHallOfFame = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.HALL_OF_FAME });
+    
+    const handleVoteHallOfFame = (dareId: string) => dispatch({ type: 'VOTE_HALL_OF_FAME', payload: dareId });
 
     const value = useMemo(() => ({
         ...state,
@@ -734,6 +773,8 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleJoinPublicLobby,
         handleQuickJoin,
         handleRefreshLobbies,
+        handleViewHallOfFame,
+        handleVoteHallOfFame,
     }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers]);
 
     return (

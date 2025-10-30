@@ -3,9 +3,10 @@ import React from 'react';
 interface MainMenuScreenProps {
   onCreateLobby: () => void;
   onJoinLobby: () => void;
+  onViewHallOfFame: () => void;
 }
 
-const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby }) => {
+const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby, onViewHallOfFame }) => {
   return (
     <div className="flex flex-col h-full items-center justify-center text-center p-4 animate-fade-in">
       <h1 className="text-6xl md:text-8xl font-bold text-purple-400 drop-shadow-lg mb-4">
@@ -25,6 +26,12 @@ const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLo
           className="py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
         >
           Join Lobby
+        </button>
+         <button
+          onClick={onViewHallOfFame}
+          className="py-3 px-6 bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg transition-transform transform hover:scale-105 active:scale-100"
+        >
+          Hall of Fame 🏆
         </button>
       </div>
     </div>

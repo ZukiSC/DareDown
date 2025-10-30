@@ -68,6 +68,7 @@ export interface Dare {
 export enum GameState {
   MAIN_MENU = 'MAIN_MENU',
   PUBLIC_LOBBIES = 'PUBLIC_LOBBIES',
+  HALL_OF_FAME = 'HALL_OF_FAME',
   CATEGORY_SELECTION = 'CATEGORY_SELECTION',
   CUSTOMIZATION = 'CUSTOMIZATION',
   LOBBY = 'LOBBY',
@@ -166,4 +167,18 @@ export interface PublicLobby {
     maxPlayers: number;
     category: Category;
     dareMode: 'AI' | 'COMMUNITY';
+}
+
+// --- HALL OF FAME TYPES ---
+// FIX: Extracted the assignee to its own interface to be used in other components.
+export interface HallOfFameAssignee {
+  id: string;
+  name: string;
+  customization: PlayerCustomization;
+}
+
+export interface HallOfFameEntry {
+  dare: Dare;
+  assignee: HallOfFameAssignee;
+  votes: number;
 }

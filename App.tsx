@@ -23,6 +23,7 @@ import DareProofScreen from './components/DareProofScreen';
 import GameEndScreen from './components/GameEndScreen';
 import TeamDareVoteScreen from './components/TeamDareVoteScreen';
 import PublicLobbiesScreen from './components/PublicLobbiesScreen';
+import HallOfFameScreen from './components/HallOfFameScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -35,7 +36,8 @@ const AppContent = () => {
     const {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
-        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies
+        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies,
+        hallOfFame, hallOfFameVotes
     } = useGameStore();
 
     const {
@@ -55,7 +57,8 @@ const AppContent = () => {
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
         handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote,
-        handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies
+        handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies,
+        handleViewHallOfFame, handleVoteHallOfFame
     } = useGameStore();
 
     const {
@@ -104,9 +107,11 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} />;
                 case GameState.PUBLIC_LOBBIES:
                     return <PublicLobbiesScreen lobbies={publicLobbies} onJoin={handleJoinPublicLobby} onQuickJoin={handleQuickJoin} onRefresh={handleRefreshLobbies} onGoBack={handleGoBack} />;
+                case GameState.HALL_OF_FAME:
+                    return <HallOfFameScreen entries={hallOfFame} onVote={handleVoteHallOfFame} votedIds={hallOfFameVotes} onViewReplay={handleViewReplay} onGoBack={handleGoBack} />;
                 case GameState.CATEGORY_SELECTION:
                     return <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={handleGoBack} />;
                 case GameState.CUSTOMIZATION:
@@ -147,7 +152,7 @@ const AppContent = () => {
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} />;
                 }
             })()}
             </div>
@@ -155,7 +160,7 @@ const AppContent = () => {
     };
   
     const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
+    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.HALL_OF_FAME, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
 
     if (!currentPlayer) {
         return (
@@ -287,7 +292,7 @@ const AppContent = () => {
         {viewingReplay && (
             <ReplayViewerModal
                 dare={viewingReplay}
-                player={allPlayers.find(p => p.id === viewingReplay.assigneeId)}
+                player={allPlayers.find(p => p.id === viewingReplay.assigneeId) || hallOfFame.find(e => e.dare.id === viewingReplay.id)?.assignee}
                 onClose={() => setViewingReplay(null)}
             />
         )}
