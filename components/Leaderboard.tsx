@@ -20,7 +20,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, currentPlayer, onVie
   }
 
   return (
-    <div className="flex flex-col items-center h-full p-2">
+    <div className="flex flex-col items-center w-full p-2">
       <h1 className="text-4xl md:text-5xl font-bold text-purple-400 mb-4">
         Leaderboard
       </h1>

@@ -36,7 +36,7 @@ const DareVotingScreen: React.FC<DareVotingScreenProps> = ({ dares, players, onV
     const sortedDares = winningDareId ? [...dares].sort((a,b) => (b.votes || 0) - (a.votes || 0)) : dares;
 
     return (
-        <div className="flex flex-col items-center h-full p-2">
+        <div className="flex flex-col items-center w-full p-2">
             <h1 className="text-4xl md:text-5xl font-bold text-yellow-400 mb-2 animate-pop-in">
                 {winningDareId ? 'The Dare is Chosen!' : (votedId ? 'Vote Cast!' : 'Vote for a Dare!')}
             </h1>
@@ -44,7 +44,7 @@ const DareVotingScreen: React.FC<DareVotingScreenProps> = ({ dares, players, onV
                 {winningDareId ? 'Get ready...' : (votedId ? 'Waiting for other players...' : 'Choose the most devious dare.')}
             </p>
 
-            <div className="w-full max-w-2xl space-y-3 overflow-y-auto pr-2">
+            <div className="w-full max-w-2xl space-y-3 pr-2">
                 {sortedDares.map((dare, index) => {
                     const isVotedFor = dare.id === votedId;
                     const isWinning = dare.id === winningDareId;

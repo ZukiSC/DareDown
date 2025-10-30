@@ -164,7 +164,7 @@ const AppContent = () => {
     }
 
     return (
-        <div className="h-full bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
+        <div className="h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col items-center p-2 sm:p-4">
         <Toaster
             position="top-center"
             toastOptions={{
@@ -196,7 +196,7 @@ const AppContent = () => {
             </button>
         </div>
         
-        <main className="relative w-full h-full max-w-7xl flex flex-col items-start justify-center bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30 overflow-hidden mt-12">
+        <main className="relative w-full flex-1 max-w-7xl flex flex-col items-center justify-start bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30 mt-16 mb-4 overflow-y-auto">
         {loadingState.active ? (
             <div className="flex flex-col items-center justify-center h-full w-full">
             <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
@@ -208,7 +208,7 @@ const AppContent = () => {
         </main>
         
         {showBottomBar && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-sm flex justify-center items-center z-30">
+            <div className="sticky bottom-4 w-full max-w-sm flex justify-center items-center z-30 mt-2">
                 <PowerUpPanel player={currentPlayer} onUsePowerUp={handleUsePowerUp} gameState={gameState} isLoser={currentPlayer.id === roundLoser?.id} />
                 <EmojiReactionPanel onReact={handleEmojiReaction} />
             </div>

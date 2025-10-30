@@ -63,7 +63,7 @@ const Lobby: React.FC<LobbyProps> = ({
   };
 
   const renderPlayerList = (list: Player[], team?: 'blue' | 'orange') => (
-    <div className={`grid grid-cols-3 gap-2 p-2 rounded-lg min-h-[90px] ${team === 'blue' ? 'bg-blue-900/40' : team === 'orange' ? 'bg-orange-900/40' : ''}`}>
+    <div className={`grid grid-cols-3 sm:grid-cols-4 gap-2 p-2 rounded-lg min-h-[90px] ${team === 'blue' ? 'bg-blue-900/40' : team === 'orange' ? 'bg-orange-900/40' : ''}`}>
       {list.map((player) => {
          const reaction = activeReactions.find(r => r.playerId === player.id)?.emoji;
         return <PlayerAvatar key={player.id} player={player} reaction={reaction} isCurrentPlayer={player.id === currentPlayer.id} onClick={() => handleAvatarClick(player)} />;
@@ -83,13 +83,13 @@ const Lobby: React.FC<LobbyProps> = ({
       <button onClick={onLeaveLobby} className="absolute top-2 left-2 text-sm px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-full transition-colors transform active:scale-95 z-10">
           Leave Lobby
       </button>
-      <div className="flex flex-col h-full items-center text-center p-1">
-        <div className="pt-4">
+      <div className="flex flex-col w-full items-center text-center p-1">
+        <div className="pt-4 flex-shrink-0">
           <h1 className="text-4xl font-bold text-purple-400 drop-shadow-lg mb-1">Team Lobby</h1>
           <p className="text-md text-gray-300">Join a team to begin!</p>
         </div>
         
-        <div className="w-full flex-grow flex flex-col gap-4 my-4 overflow-y-auto pb-40">
+        <div className="w-full flex flex-col gap-4 my-4">
             {/* Team Blue */}
             <div className="flex flex-col">
                 <h2 className="text-2xl font-bold text-blue-400 mb-2">Team Blue</h2>
@@ -109,7 +109,7 @@ const Lobby: React.FC<LobbyProps> = ({
             )}
         </div>
         
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gray-800/80 backdrop-blur-sm border-t border-purple-500/30">
+        <div className="w-full p-4 bg-gray-800/80 backdrop-blur-sm border-t border-purple-500/30 flex-shrink-0">
           {currentPlayer.teamId === null && (
             <div className="flex gap-4 mb-2 justify-center">
                 <button onClick={() => onJoinTeam('blue')} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transform transition-transform active:scale-95">Join Blue</button>

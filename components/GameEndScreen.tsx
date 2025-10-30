@@ -14,7 +14,7 @@ const GameEndScreen: React.FC<GameEndScreenProps> = ({ players, onPlayAgain, onR
   const winner = sortedPlayers.length > 0 ? sortedPlayers[0] : null;
 
   return (
-    <div className="flex flex-col items-center justify-between h-full p-4 relative">
+    <div className="flex flex-col items-center w-full p-4 relative">
       <Confetti />
       <div className="text-center">
         <h1 className="text-5xl md:text-7xl font-bold text-yellow-300 drop-shadow-lg mb-4 animate-slide-down">
@@ -50,7 +50,7 @@ const GameEndScreen: React.FC<GameEndScreenProps> = ({ players, onPlayAgain, onR
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 w-full max-w-lg animate-slide-in-up" style={{ animationDelay: '800ms' }}>
+      <div className="flex flex-col sm:flex-row gap-4 w-full max-w-lg animate-slide-in-up mt-auto" style={{ animationDelay: '800ms' }}>
         <button
           onClick={onPlayAgain}
           className="w-full py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold text-xl rounded-lg shadow-lg transform transition-transform active:scale-95"
