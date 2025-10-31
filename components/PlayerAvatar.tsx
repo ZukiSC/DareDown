@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Player } from '../types';
 import { getAvatarById, getColorById, getBadgeTierDetails } from '../services/customizationService';
@@ -10,9 +11,11 @@ interface PlayerAvatarProps {
   onClick?: (playerId: string) => void;
   className?: string;
   style?: React.CSSProperties;
+  isDraggable?: boolean;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner, onClick, className, style }) => {
+const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner, onClick, className, style, isDraggable, onDragStart }) => {
   const avatar = useMemo(() => getAvatarById(player.customization.avatarId), [player.customization.avatarId]);
   const color = useMemo(() => getColorById(player.customization.colorId), [player.customization.colorId]);
   const badgeInfo = useMemo(() => {
@@ -39,11 +42,18 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
     ${isCurrentPlayer ? 'bg-purple-600/70' : 'bg-gray-700/50'}
     ${isWinner ? 'shadow-lg shadow-yellow-400/50 animate-glow' : ''}
     ${player.isHost && !isWinner ? 'animate-glow-host' : ''}
-    ${onClick ? 'cursor-pointer hover:bg-purple-600/50' : ''}
+    ${onClick && !isDraggable ? 'cursor-pointer hover:bg-purple-600/50' : ''}
+    ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
     ${className || ''}`;
 
   return (
-    <div className={containerClasses} onClick={handleAvatarClick} style={style}>
+    <div 
+        className={containerClasses} 
+        onClick={handleAvatarClick} 
+        style={style}
+        draggable={isDraggable}
+        onDragStart={onDragStart}
+    >
        {reaction && (
         <div 
           key={Date.now()}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Player } from '../types';
 import PlayerAvatar from './PlayerAvatar';
@@ -26,6 +27,7 @@ const Lobby: React.FC<LobbyProps> = ({
   const [kickConfirmPlayer, setKickConfirmPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const { activeReactions } = useUIStore();
+  const [draggingOverTeam, setDraggingOverTeam] = useState<'blue' | 'orange' | null>(null);
   
   const teamBlue = players.filter(p => p.teamId === 'blue');
   const teamOrange = players.filter(p => p.teamId === 'orange');
@@ -48,6 +50,9 @@ const Lobby: React.FC<LobbyProps> = ({
   const handleCancelCountdown = () => setCountdown(null);
   
   const handleAvatarClick = (player: Player) => {
+    // Prevent profile view while dragging
+    if (player.id === currentPlayer.id && currentPlayer.teamId === null) return;
+
     if (currentPlayer.isHost && player.id !== currentPlayer.id) {
       setKickConfirmPlayer(player);
     } else {
@@ -61,12 +66,51 @@ const Lobby: React.FC<LobbyProps> = ({
       setKickConfirmPlayer(null);
     }
   };
+  
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, playerId: string) => {
+    if (playerId !== currentPlayer.id) {
+        e.preventDefault();
+        return;
+    }
+    e.dataTransfer.setData('playerId', playerId);
+  };
+  
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, teamId: 'blue' | 'orange') => {
+      e.preventDefault();
+      if (currentPlayer.teamId === null) {
+          setDraggingOverTeam(teamId);
+      }
+  };
+  
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDraggingOverTeam(null);
+  };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, teamId: 'blue' | 'orange') => {
+      e.preventDefault();
+      const playerId = e.dataTransfer.getData('playerId');
+      if (playerId === currentPlayer.id) {
+          onJoinTeam(teamId);
+      }
+      setDraggingOverTeam(null);
+  };
 
-  const renderPlayerList = (list: Player[], team?: 'blue' | 'orange') => (
-    <div className={`grid grid-cols-3 sm:grid-cols-4 gap-2 p-2 rounded-lg min-h-[90px] ${team === 'blue' ? 'bg-blue-900/40' : team === 'orange' ? 'bg-orange-900/40' : ''}`}>
+
+  const renderPlayerList = (list: Player[], isUnassignedList?: boolean) => (
+    <div className={`grid grid-cols-3 sm:grid-cols-4 gap-2 rounded-lg min-h-[90px]`}>
       {list.map((player) => {
          const reaction = activeReactions.find(r => r.playerId === player.id)?.emoji;
-        return <PlayerAvatar key={player.id} player={player} reaction={reaction} isCurrentPlayer={player.id === currentPlayer.id} onClick={() => handleAvatarClick(player)} />;
+         const isDraggable = isUnassignedList && player.id === currentPlayer.id;
+        return <PlayerAvatar 
+                    key={player.id} 
+                    player={player} 
+                    reaction={reaction} 
+                    isCurrentPlayer={player.id === currentPlayer.id} 
+                    onClick={() => handleAvatarClick(player)} 
+                    isDraggable={isDraggable}
+                    onDragStart={(e) => handleDragStart(e, player.id)}
+                />;
       })}
     </div>
   );
@@ -91,31 +135,37 @@ const Lobby: React.FC<LobbyProps> = ({
         
         <div className="w-full flex flex-col gap-4 my-4">
             {/* Team Blue */}
-            <div className="flex flex-col">
+            <div 
+                className={`p-2 rounded-lg transition-all duration-200 bg-blue-900/40 ${draggingOverTeam === 'blue' ? 'border-2 border-dashed border-blue-400 bg-blue-900/80 scale-105' : 'border-2 border-transparent'}`}
+                onDragOver={(e) => handleDragOver(e, 'blue')}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, 'blue')}
+            >
                 <h2 className="text-2xl font-bold text-blue-400 mb-2">Team Blue</h2>
-                {renderPlayerList(teamBlue, 'blue')}
+                {renderPlayerList(teamBlue)}
             </div>
             {/* Team Orange */}
-            <div className="flex flex-col">
+             <div 
+                className={`p-2 rounded-lg transition-all duration-200 bg-orange-900/40 ${draggingOverTeam === 'orange' ? 'border-2 border-dashed border-orange-400 bg-orange-900/80 scale-105' : 'border-2 border-transparent'}`}
+                onDragOver={(e) => handleDragOver(e, 'orange')}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, 'orange')}
+            >
                 <h2 className="text-2xl font-bold text-orange-400 mb-2">Team Orange</h2>
-                {renderPlayerList(teamOrange, 'orange')}
+                {renderPlayerList(teamOrange)}
             </div>
             
             {unassigned.length > 0 && (
-                <div className="w-full">
-                    <h3 className="text-lg font-semibold mb-2">Unassigned Players</h3>
-                    {renderPlayerList(unassigned)}
+                <div className="w-full mt-4">
+                    <h3 className="text-lg font-semibold mb-2">
+                         {currentPlayer.teamId === null ? "Drag your avatar to a team!" : "Unassigned Players"}
+                    </h3>
+                    {renderPlayerList(unassigned, true)}
                 </div>
             )}
         </div>
         
         <div className="w-full p-4 bg-gray-800/80 backdrop-blur-sm border-t border-purple-500/30 flex-shrink-0">
-          {currentPlayer.teamId === null && (
-            <div className="flex gap-4 mb-2 justify-center">
-                <button onClick={() => onJoinTeam('blue')} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transform transition-transform active:scale-95">Join Blue</button>
-                <button onClick={() => onJoinTeam('orange')} className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg shadow-lg transform transition-transform active:scale-95">Join Orange</button>
-            </div>
-          )}
           {currentPlayer.teamId !== null && !countdown && (
               <button onClick={() => onJoinTeam(null)} className="mb-2 px-4 py-1.5 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg text-sm">Leave Team</button>
           )}

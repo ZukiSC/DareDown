@@ -9,18 +9,43 @@ interface DareSubmissionScreenProps {
   onSubmit: (dareText: string) => void;
 }
 
+const MIN_DARE_LENGTH = 10;
+const MAX_DARE_LENGTH = 100;
+
 const DareSubmissionScreen: React.FC<DareSubmissionScreenProps> = ({ loser, currentPlayer, players, onSubmit }) => {
   const [dareText, setDareText] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState('');
   const isLoser = currentPlayer.id === loser?.id;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (dareText.trim()) {
-      onSubmit(dareText.trim());
-      setIsSubmitted(true);
+    const trimmedDare = dareText.trim();
+    if (trimmedDare.length === 0) {
+      setError('Dare cannot be empty.');
+      return;
     }
+    if (trimmedDare.length < MIN_DARE_LENGTH) {
+      setError(`Dare must be at least ${MIN_DARE_LENGTH} characters long.`);
+      return;
+    }
+    // The maxLength attribute on the input already prevents this, but it's good practice for validation.
+    if (trimmedDare.length > MAX_DARE_LENGTH) {
+      setError(`Dare must not exceed ${MAX_DARE_LENGTH} characters.`);
+      return;
+    }
+
+    setError('');
+    onSubmit(trimmedDare);
+    setIsSubmitted(true);
   };
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setDareText(e.target.value);
+      if (error) {
+          setError('');
+      }
+  }
 
   if (isLoser) {
     return (
@@ -48,18 +73,32 @@ const DareSubmissionScreen: React.FC<DareSubmissionScreenProps> = ({ loser, curr
       </h1>
       <p className="text-xl text-gray-300 mb-8">What should their dare be?</p>
       <form onSubmit={handleSubmit} className="w-full max-w-md">
-        <input
-          type="text"
-          value={dareText}
-          onChange={(e) => setDareText(e.target.value)}
-          placeholder="e.g., Sing the alphabet backwards"
-          className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg mb-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-          maxLength={100}
-        />
+        <div className="relative w-full">
+            <input
+              type="text"
+              value={dareText}
+              onChange={handleInputChange}
+              placeholder="e.g., Sing the alphabet backwards"
+              className={`w-full p-3 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-purple-500'}`}
+              maxLength={MAX_DARE_LENGTH}
+              aria-invalid={!!error}
+              aria-describedby="dare-error"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                {dareText.length}/{MAX_DARE_LENGTH}
+            </span>
+        </div>
+
+        {error && (
+            <p id="dare-error" className="text-red-500 text-sm mt-2 animate-shake" role="alert">
+                {error}
+            </p>
+        )}
+        
         <button
           type="submit"
           disabled={!dareText.trim()}
-          className="w-full py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold text-xl rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed"
+          className="w-full mt-4 py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold text-xl rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed"
         >
           Submit Dare
         </button>
