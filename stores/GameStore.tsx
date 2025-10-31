@@ -1,4 +1,5 @@
 
+
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
@@ -37,6 +38,10 @@ interface GameStoreState {
   subscribedDarePackIds: string[];
   votedDarePackIds: string[];
   xpSummary: { [playerId: string]: { reason: string; amount: number }[] };
+  lastRoundScores: {
+    scores: { playerId: string; score: number }[];
+    challengeType: MiniGameType;
+  } | null;
 }
 
 const MOCK_HALL_OF_FAME: HallOfFameEntry[] = [
@@ -102,6 +107,7 @@ const initialState: GameStoreState = {
   subscribedDarePackIds: ['pack_1'],
   votedDarePackIds: [],
   xpSummary: {},
+  lastRoundScores: null,
 };
 
 // --- ACTIONS ---
@@ -112,7 +118,7 @@ type Action =
   | { type: 'START_GAME'; payload: { challenge: Challenge } }
   | { type: 'SET_MAX_ROUNDS'; payload: number }
   // FIX: Updated END_MINIGAME to carry losingTeamId in payload.
-  | { type: 'END_MINIGAME'; payload: { playerScores: Map<string, number>, challengeType: MiniGameType, losingTeamId: 'blue' | 'orange' | null } }
+  | { type: 'END_MINIGAME'; payload: { playerScores: Map<string, number>, challengeType: MiniGameType, losingTeamId: 'blue' | 'orange' | null, scores: { playerId: string; score: number }[] } }
   | { type: 'SET_SUDDEN_DEATH'; payload: { playerIds: string[] } }
   | { type: 'SET_DARE'; payload: { dare: Dare; loserId: string } }
   | { type: 'START_LIVE_DARE' }
@@ -144,7 +150,8 @@ type Action =
   | { type: 'VOTE_DARE_PACK'; payload: string } // packId
   | { type: 'CREATE_DARE_PACK'; payload: Omit<DarePack, 'id' | 'votes'> }
   | { type: 'ADD_XP_SUMMARY'; payload: { playerId: string, reason: string, amount: number } }
-  | { type: 'CLEAR_XP_SUMMARY' };
+  | { type: 'CLEAR_XP_SUMMARY' }
+  | { type: 'PASS_DARE'; payload: { newLoserId: string, newDare: Dare } };
 
 
 // --- REDUCER ---
@@ -163,7 +170,16 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
     // FIX: Updated reducer to set losingTeamId from the action payload.
     case 'END_MINIGAME': {
       // Team logic is handled in the action creator, this just transitions state
-      return { ...state, gameState: GameState.TEAM_DARE_VOTE, submittedDares: [], losingTeamId: action.payload.losingTeamId };
+      return { 
+        ...state, 
+        gameState: GameState.TEAM_DARE_VOTE, 
+        submittedDares: [], 
+        losingTeamId: action.payload.losingTeamId,
+        lastRoundScores: {
+          scores: action.payload.scores,
+          challengeType: action.payload.challengeType,
+        }
+      };
     }
     case 'VOTE_FOR_TEAMMATE': {
         return {
@@ -199,6 +215,12 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
       return { ...state, gameState: GameState.SUDDEN_DEATH, suddenDeathPlayerIds: action.payload.playerIds };
     case 'SET_DARE':
       return { ...state, gameState: GameState.DARE_SCREEN, currentDare: action.payload.dare, roundLoserId: action.payload.loserId, losingTeamId: null };
+    case 'PASS_DARE':
+      return {
+        ...state,
+        roundLoserId: action.payload.newLoserId,
+        currentDare: action.payload.newDare,
+      };
     case 'START_LIVE_DARE':
       return { ...state, gameState: GameState.DARE_LIVE_STREAM };
     case 'UPDATE_CURRENT_DARE':
@@ -273,6 +295,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             losingTeamId: null,
             teamVotes: {},
             xpSummary: {},
+            lastRoundScores: null,
         };
     case 'RETURN_TO_MENU':
         return initialState;
@@ -566,14 +589,14 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         const blueAvg = teamScores.blue.playerCount > 0 ? teamScores.blue.totalScore / teamScores.blue.playerCount : 0;
         const orangeAvg = teamScores.orange.playerCount > 0 ? teamScores.orange.totalScore / teamScores.orange.playerCount : 0;
         
-        // Higher is better for: QUICK_QUIZ, TAP_SPEED, RHYTHM_RUSH, SPOT_THE_DIFFERENCE, DOODLE_DOWN
-        const higherIsBetter = ['QUICK_QUIZ', 'TAP_SPEED', 'RHYTHM_RUSH', 'SPOT_THE_DIFFERENCE', 'DOODLE_DOWN'].includes(challengeType);
+        // Higher is better for all except MEMORY_MATCH
+        const higherIsBetter = !['MEMORY_MATCH'].includes(challengeType);
         
         let losingTeamId: 'blue' | 'orange' | null = null;
         if (teamScores.blue.playerCount > 0 && teamScores.orange.playerCount > 0) {
             if (higherIsBetter) {
                 losingTeamId = blueAvg < orangeAvg ? 'blue' : 'orange';
-            } else { // Lower is better for MEMORY_MATCH, NUMBER_RACE
+            } else { // Lower is better for MEMORY_MATCH
                 losingTeamId = blueAvg > orangeAvg ? 'blue' : 'orange';
             }
              if (blueAvg === orangeAvg) { // On tie, pick randomly
@@ -585,9 +608,9 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             losingTeamId = 'orange';
         }
 
-        // FIX: Replaced direct reducer call and state mutation with a proper dispatch.
+        const scoresArray = Array.from(playerScores.entries()).map(([playerId, score]) => ({ playerId, score }));
         if (losingTeamId) {
-            dispatch({ type: 'END_MINIGAME', payload: { playerScores, challengeType, losingTeamId } });
+            dispatch({ type: 'END_MINIGAME', payload: { playerScores, challengeType, losingTeamId, scores: scoresArray } });
         } else {
             handleNextRound();
         }
@@ -673,10 +696,42 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }
     
         switch (powerUpId) {
-            case 'SKIP_DARE':
-                dispatch({ type: 'SET_GAME_STATE', payload: GameState.LEADERBOARD });
-                setTimeout(() => handleNextRound(), 4000);
+            case 'SKIP_DARE': {
+                const { lastRoundScores, currentDare, roundLoserId } = state;
+                if (!lastRoundScores || !currentDare || !roundLoserId) {
+                    showNotification('Could not pass dare, skipping instead!', '🤷');
+                    dispatch({ type: 'SET_GAME_STATE', payload: GameState.LEADERBOARD });
+                    setTimeout(() => handleNextRound(), 4000);
+                    break;
+                }
+
+                const { scores, challengeType } = lastRoundScores;
+                const higherIsBetter = !['MEMORY_MATCH'].includes(challengeType);
+                const sortedPlayers = [...scores].sort((a, b) => higherIsBetter ? a.score - b.score : b.score - a.score);
+                
+                const newLoserScoreData = sortedPlayers.length > 1 ? sortedPlayers[1] : null;
+
+                if (newLoserScoreData && newLoserScoreData.playerId !== roundLoserId) {
+                    const newLoserId = newLoserScoreData.playerId;
+                    const newLoserPlayer = players.find(p => p.id === newLoserId);
+                    const oldLoserPlayer = players.find(p => p.id === roundLoserId);
+
+                    if (newLoserPlayer && oldLoserPlayer) {
+                        const newDare = { ...currentDare, assigneeId: newLoserId };
+                        showNotification(`${oldLoserPlayer.name} passed the dare to ${newLoserPlayer.name}!`, '🔁');
+                        dispatch({ type: 'PASS_DARE', payload: { newLoserId: newLoserId, newDare } });
+                    } else {
+                        showNotification('Could not find player to pass dare to, skipping instead!', '🤷');
+                        dispatch({ type: 'SET_GAME_STATE', payload: GameState.LEADERBOARD });
+                        setTimeout(() => handleNextRound(), 4000);
+                    }
+                } else {
+                    showNotification('No one to pass the dare to, skipping!', '🤷');
+                    dispatch({ type: 'SET_GAME_STATE', payload: GameState.LEADERBOARD });
+                    setTimeout(() => handleNextRound(), 4000);
+                }
                 break;
+            }
             case 'EXTRA_TIME':
                 dispatch({ type: 'USE_EXTRA_TIME' });
                 break;
