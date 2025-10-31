@@ -20,6 +20,7 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     xp: 0,
     xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
     badgeUnlocks: {},
+    subscribedDarePackIds: [],
     // Dare Pass
     darePassTier: 1,
     darePassStars: 0,
@@ -35,6 +36,7 @@ const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' |
     stats: { wins: 5, daresCompleted: 12, daresFailed: 3 },
     badgeUnlocks: { 'badge_dare_survivor': 2, 'badge_winner': 2 }, // Unlocked silver for both
     customization: { avatarId: 'avatar_1', colorId: 'color_1', equippedBadge: { id: 'badge_dare_survivor', tier: 2 } },
+    subscribedDarePackIds: ['pack_1'],
 };
 MOCK_ALL_PLAYERS_DATA[0] = initialPlayer;
 MOCK_ALL_PLAYERS_DATA[2].friends.push('p1');
@@ -140,6 +142,7 @@ interface SocialStoreContextType extends SocialStoreState {
   claimChallengeReward: (playerId: string, challengeId: string) => void;
   purchasePremiumPass: (playerId: string) => void;
   // Social
+  handleSubscribeDarePack: (packId: string) => void;
   handleSendFriendRequest: (targetId: string) => boolean;
   handleAcceptFriendRequest: (fromId: string) => string | null;
   handleDeclineFriendRequest: (fromId: string) => void;
@@ -322,6 +325,14 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
             unlocks: newUnlocks,
         });
     }, [state.allPlayers, updatePlayer]);
+
+    const handleSubscribeDarePack = useCallback((packId: string) => {
+        const isSubscribed = currentPlayer.subscribedDarePackIds.includes(packId);
+        const newSubs = isSubscribed
+            ? currentPlayer.subscribedDarePackIds.filter(id => id !== packId)
+            : [...currentPlayer.subscribedDarePackIds, packId];
+        updatePlayer(currentPlayer.id, { subscribedDarePackIds: newSubs });
+    }, [currentPlayer, updatePlayer]);
     
     const handleSendFriendRequest = (targetId: string): boolean => {
         const newRequest: FriendRequest = {
@@ -402,6 +413,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         updateChallengeProgress,
         claimChallengeReward,
         purchasePremiumPass,
+        handleSubscribeDarePack,
         handleSendFriendRequest,
         handleAcceptFriendRequest,
         handleDeclineFriendRequest,
@@ -410,7 +422,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         handleOpenPrivateChat,
         handleClosePrivateChat,
         handleSendPrivateMessage,
-    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, checkForBadgeUpgrades, updateChallengeProgress, claimChallengeReward, purchasePremiumPass]);
+    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, checkForBadgeUpgrades, updateChallengeProgress, claimChallengeReward, purchasePremiumPass, handleSubscribeDarePack]);
 
     return (
         <SocialStoreContext.Provider value={value}>

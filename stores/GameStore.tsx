@@ -1,9 +1,11 @@
 
 
+
+
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
-import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby, HallOfFameEntry, DarePack, Avatar, Badge, ColorTheme } from '../types';
+import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby, HallOfFameEntry, DarePack, Avatar, Badge, ColorTheme, DareMode } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
@@ -28,14 +30,13 @@ interface GameStoreState {
   extraTime: number;
   isSwappingCategory: boolean;
   dareArchive: Dare[];
-  dareMode: 'AI' | 'COMMUNITY';
+  dareMode: DareMode;
   submittedDares: Dare[];
   winningDareId: string | null;
   publicLobbies: PublicLobby[];
   hallOfFame: HallOfFameEntry[];
   hallOfFameVotes: string[]; // Dare IDs the player has voted for
   communityDarePacks: DarePack[];
-  subscribedDarePackIds: string[];
   votedDarePackIds: string[];
   xpSummary: { [playerId: string]: { reason: string; amount: number }[] };
   lastRoundScores: {
@@ -104,7 +105,6 @@ const initialState: GameStoreState = {
   hallOfFame: MOCK_HALL_OF_FAME,
   hallOfFameVotes: [],
   communityDarePacks: MOCK_DARE_PACKS,
-  subscribedDarePackIds: ['pack_1'],
   votedDarePackIds: [],
   xpSummary: {},
   lastRoundScores: null,
@@ -129,7 +129,7 @@ type Action =
   | { type: 'USE_EXTRA_TIME' }
   | { type: 'SET_SWAPPING_CATEGORY'; payload: boolean }
   | { type: 'RESET_LOBBY' }
-  | { type: 'SET_DARE_MODE'; payload: 'AI' | 'COMMUNITY' }
+  | { type: 'SET_DARE_MODE'; payload: DareMode }
   | { type: 'SUBMIT_DARE'; payload: Dare }
   | { type: 'START_DARE_VOTING' }
   | { type: 'VOTE_FOR_DARE'; payload: string }
@@ -146,7 +146,6 @@ type Action =
   | { type: 'JOIN_LOBBY'; payload: { hostId: string; playerId: string } }
   | { type: 'REFRESH_LOBBIES'; payload: { lobbies: PublicLobby[] } }
   | { type: 'VOTE_HALL_OF_FAME'; payload: string } // dareId
-  | { type: 'SUBSCRIBE_DARE_PACK'; payload: string } // packId
   | { type: 'VOTE_DARE_PACK'; payload: string } // packId
   | { type: 'CREATE_DARE_PACK'; payload: Omit<DarePack, 'id' | 'votes'> }
   | { type: 'ADD_XP_SUMMARY'; payload: { playerId: string, reason: string, amount: number } }
@@ -328,16 +327,6 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             ),
             hallOfFameVotes: [...state.hallOfFameVotes, action.payload]
         };
-    case 'SUBSCRIBE_DARE_PACK': {
-        const { payload: packId } = action;
-        const isSubscribed = state.subscribedDarePackIds.includes(packId);
-        return {
-            ...state,
-            subscribedDarePackIds: isSubscribed
-                ? state.subscribedDarePackIds.filter(id => id !== packId)
-                : [...state.subscribedDarePackIds, packId]
-        };
-    }
     case 'VOTE_DARE_PACK': {
         const { payload: packId } = action;
         if (state.votedDarePackIds.includes(packId)) return state;
@@ -400,7 +389,7 @@ interface GameStoreContextType extends GameStoreState {
   handleReturnToMenu: () => void;
   handleGoBack: () => void;
   setMaxRounds: (rounds: number) => void;
-  setDareMode: (mode: 'AI' | 'COMMUNITY') => void;
+  setDareMode: (mode: DareMode) => void;
   handleDareSubmit: (dareText: string) => void;
   handleDareVote: (dareId: string) => void;
   handleJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
@@ -413,7 +402,6 @@ interface GameStoreContextType extends GameStoreState {
   handleVoteHallOfFame: (dareId: string) => void;
   handleViewCommunityDares: () => void;
   handleViewDarePass: () => void;
-  handleSubscribeDarePack: (packId: string) => void;
   handleVoteDarePack: (packId: string) => void;
   handleCreateDarePack: (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => void;
 }
@@ -437,7 +425,7 @@ const generateMockLobbies = (allPlayers: Player[], count: number): PublicLobby[]
             playerCount: Math.floor(Math.random() * 6) + 2, // 2-7 players
             maxPlayers: 8,
             category: ['General', 'Trivia', 'Speed/Reflex', 'Puzzles'][Math.floor(Math.random() * 4)] as Category,
-            dareMode: Math.random() > 0.5 ? 'AI' : 'COMMUNITY',
+            dareMode: (['AI', 'COMMUNITY', 'DARE_PACKS'] as DareMode[])[Math.floor(Math.random() * 3)],
         });
     }
     return lobbies;
@@ -558,16 +546,54 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             setLoading({ active: false, message: '' });
         }
     }, [players, currentPlayer, handleNextRound, setLoading]);
+
+    const generateDareFromPacksAndShow = useCallback(async (loser: Player) => {
+        setLoading({ active: true, message: 'Finding a dare from your packs...' });
+        try {
+            const host = players.find(p => p.isHost);
+            if (!host) throw new Error("Host not found");
+    
+            const hostSubscribedPacks = state.communityDarePacks.filter(pack => 
+                host.subscribedDarePackIds.includes(pack.id)
+            );
+    
+            const allSubscribedDares = hostSubscribedPacks.flatMap(pack => pack.dares);
+    
+            if (allSubscribedDares.length === 0) {
+                showNotification('No dares in subscribed packs. Using AI!', '🤖');
+                await generateAndShowDare(loser); // Fallback to AI
+                return;
+            }
+    
+            const dareText = allSubscribedDares[Math.floor(Math.random() * allSubscribedDares.length)];
+            const newDare: Dare = {
+                id: `d_${Date.now()}`, text: dareText, assigneeId: loser.id, status: 'pending',
+            };
+            dispatch({ type: 'SET_DARE', payload: { dare: newDare, loserId: loser.id } });
+            if (loser.id === currentPlayer.id) {
+                showLocalNotification("It's your turn!", { body: `Your dare is: ${newDare.text}` });
+            }
+    
+        } catch (error) {
+            console.error("Failed to generate dare from packs:", error);
+            showNotification('Error finding dare from packs. Using AI!', '🤖');
+            await generateAndShowDare(loser);
+        } finally {
+            setLoading({ active: false, message: '' });
+        }
+    }, [players, state.communityDarePacks, currentPlayer, setLoading, showNotification, generateAndShowDare]);
     
     useEffect(() => {
         if (roundLoser && ![GameState.DARE_SCREEN, GameState.DARE_SUBMISSION, GameState.DARE_VOTING, GameState.DARE_PROOF, GameState.DARE_LIVE_STREAM].includes(state.gameState)) {
             if (state.dareMode === 'AI') {
                 generateAndShowDare(roundLoser);
+            } else if (state.dareMode === 'DARE_PACKS') {
+                generateDareFromPacksAndShow(roundLoser);
             } else {
                 dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_SUBMISSION });
             }
         }
-    }, [roundLoser, state.gameState, state.dareMode, generateAndShowDare]);
+    }, [roundLoser, state.gameState, state.dareMode, generateAndShowDare, generateDareFromPacksAndShow]);
 
     const handleMiniGameEnd = useCallback((playerScores: Map<string, number>, challengeType: MiniGameType) => {
         players.forEach(p => {
@@ -824,14 +850,21 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     };
     
     const handleQuickJoin = () => {
-        const availableLobbies = state.publicLobbies.filter(l => l.playerCount < l.maxPlayers);
-        if (availableLobbies.length > 0) {
-            // Pick a random available lobby
-            const lobbyToJoin = availableLobbies[Math.floor(Math.random() * availableLobbies.length)];
-            handleJoinPublicLobby(lobbyToJoin.id);
-        } else {
-            showNotification('No available lobbies for Quick Join.', '😢');
-        }
+        setLoading({ active: true, message: 'Finding a game...' });
+        // Simulate fetching lobbies
+        setTimeout(() => {
+            const lobbies = generateMockLobbies(allPlayers, 5);
+            const availableLobbies = lobbies.filter(l => l.playerCount < l.maxPlayers);
+            
+            if (availableLobbies.length > 0) {
+                const lobbyToJoin = availableLobbies[Math.floor(Math.random() * availableLobbies.length)];
+                handleJoinPublicLobby(lobbyToJoin.id);
+                showNotification(`Joining ${lobbyToJoin.hostName}'s lobby!`, '🚀');
+            } else {
+                showNotification('No available lobbies found for Quick Play.', '😢');
+            }
+            setLoading({ active: false, message: '' });
+        }, 1000); // Simulate network delay
     };
 
 
@@ -916,7 +949,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
 
     const handleViewCommunityDares = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMMUNITY_DARES });
     const handleViewDarePass = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_PASS });
-    const handleSubscribeDarePack = (packId: string) => dispatch({ type: 'SUBSCRIBE_DARE_PACK', payload: packId });
     const handleVoteDarePack = (packId: string) => dispatch({ type: 'VOTE_DARE_PACK', payload: packId });
     const handleCreateDarePack = (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => {
         if (!currentPlayer) return;
@@ -950,7 +982,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleReturnToMenu,
         handleGoBack,
         setMaxRounds: (r: number) => dispatch({ type: 'SET_MAX_ROUNDS', payload: r }),
-        setDareMode: (mode: 'AI' | 'COMMUNITY') => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
+        setDareMode: (mode: DareMode) => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
         handleDareSubmit,
         handleDareVote,
         handleJoinTeam,
@@ -963,7 +995,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleVoteHallOfFame,
         handleViewCommunityDares,
         handleViewDarePass,
-        handleSubscribeDarePack,
         handleVoteDarePack,
         handleCreateDarePack,
     }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleQuickJoin, handleRefreshLobbies, handleJoinPublicLobby, handleViewPublicLobbies, handleVoteHallOfFame, handleViewHallOfFame]);

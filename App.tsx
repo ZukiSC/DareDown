@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useEffect, useRef } from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
@@ -43,7 +46,7 @@ const AppContent = () => {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
         dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies,
-        hallOfFame, hallOfFameVotes, communityDarePacks, subscribedDarePackIds, votedDarePackIds,
+        hallOfFame, hallOfFameVotes, communityDarePacks, votedDarePackIds,
         xpSummary
     } = useGameStore();
 
@@ -65,14 +68,14 @@ const AppContent = () => {
         handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote,
         handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies,
         handleViewHallOfFame, handleVoteHallOfFame,
-        handleViewCommunityDares, handleSubscribeDarePack, handleVoteDarePack, handleCreateDarePack,
+        handleViewCommunityDares, handleVoteDarePack, handleCreateDarePack,
         handleViewDarePass
     } = useGameStore();
 
     const {
         handleSendFriendRequest, handleAcceptFriendRequest, handleDeclineFriendRequest,
         handleSendMessage, handleReactToMessage, handleSendPrivateMessage, handleOpenPrivateChat,
-        handleClosePrivateChat, claimChallengeReward, purchasePremiumPass
+        handleClosePrivateChat, claimChallengeReward, purchasePremiumPass, handleSubscribeDarePack
     } = useSocialStore();
 
     const {
@@ -134,7 +137,7 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} />;
                 case GameState.PUBLIC_LOBBIES:
                     return <PublicLobbiesScreen lobbies={publicLobbies} onJoin={handleJoinPublicLobby} onQuickJoin={handleQuickJoin} onRefresh={handleRefreshLobbies} onGoBack={handleGoBack} />;
                 case GameState.HALL_OF_FAME:
@@ -149,7 +152,7 @@ const AppContent = () => {
                 case GameState.COMMUNITY_DARES:
                     return <CommunityDaresScreen
                         packs={communityDarePacks}
-                        subscribedIds={subscribedDarePackIds}
+                        subscribedIds={currentPlayer.subscribedDarePackIds}
                         votedIds={votedDarePackIds}
                         currentPlayerId={currentPlayer.id}
                         onSubscribe={handleSubscribeDarePack}
@@ -197,7 +200,7 @@ const AppContent = () => {
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} xpSummary={xpSummary[currentPlayer.id] || []} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} />;
                 }
             })()}
             </div>
@@ -231,14 +234,12 @@ const AppContent = () => {
                 item = {
                     name: `${newUnlock.item.name} (${newUnlock.tier.name})`,
                     emoji: newUnlock.tier.emoji,
-                    // FIX: Correctly access the description from the unlockRequirement property.
                     description: newUnlock.tier.unlockRequirement.description,
                 };
                 break;
             case 'item': {
                 title = 'Item Unlocked!';
                 const unlockedItem = newUnlock.item;
-                // FIX: Handle different unlocked item types to create a consistent 'item' object for rendering.
                 if ('tiers' in unlockedItem) { // Badge
                     item = {
                         name: unlockedItem.name,

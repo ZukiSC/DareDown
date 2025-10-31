@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Avatar, Badge, ColorTheme } from '../types';
 import Confetti from './Confetti';
@@ -14,7 +15,20 @@ interface LevelUpModalProps {
 const LevelUpModal: React.FC<LevelUpModalProps> = ({ data, onClose }) => {
   const { level, reward } = data;
 
+  // Type guards
   const isColor = (item: any): item is ColorTheme => 'primaryClass' in item;
+  const isBadge = (item: any): item is Badge => 'tiers' in item;
+
+  const renderRewardIcon = () => {
+    if (isColor(reward)) {
+      return <div className={`w-14 h-14 rounded-full ${reward.primaryClass} border-4 ${reward.secondaryClass}`} />;
+    }
+    if (isBadge(reward)) {
+      return <span>{reward.tiers[0].emoji}</span>;
+    }
+    // It must be an Avatar
+    return <span>{reward.emoji}</span>;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-fade-in p-4" onClick={onClose}>
@@ -25,28 +39,26 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ data, onClose }) => {
         >
             <span className="absolute -top-8 text-6xl">🎉</span>
             <h2 className="text-4xl font-bold text-yellow-300 drop-shadow-lg">LEVEL UP!</h2>
-            <p className="text-8xl font-bold my-4 text-white drop-shadow-md">{level}</p>
+            <p className="text-xl mt-2">You've reached <span className="font-bold text-purple-400">Level {level}!</span></p>
             
-            <p className="text-lg text-gray-300 mb-2">You've unlocked a new reward!</p>
-            
-            <div className="bg-gray-900/70 p-4 rounded-lg flex items-center gap-4 w-full justify-center">
-                <div className="text-5xl">
-                    {isColor(reward) ? (
-                        <div className={`w-14 h-14 rounded-full ${reward.primaryClass} border-4 ${reward.secondaryClass}`}></div>
-                    ) : (
-                        // FIX: Differentiate between Badge and Avatar to get the correct emoji property.
-                        <span>{'tiers' in reward ? reward.tiers[0].emoji : reward.emoji}</span>
-                    )}
-                </div>
-                <div>
-                    <h3 className="text-2xl font-bold text-purple-300">{reward.name}</h3>
-                    {'description' in reward && <p className="text-sm text-gray-400">{reward.description}</p>}
+            <div className="my-6">
+                <p className="text-gray-400 mb-2">You've unlocked:</p>
+                <div className="bg-gray-900/50 p-4 rounded-xl flex items-center gap-4">
+                    <div className="text-5xl">
+                        {renderRewardIcon()}
+                    </div>
+                    <div className="text-left">
+                        <h3 className="text-xl font-bold">{reward.name}</h3>
+                        <p className="text-sm text-gray-300">
+                            {isBadge(reward) ? reward.description : (isColor(reward) ? 'New Color Theme' : 'New Avatar')}
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <button
+            <button 
                 onClick={onClose}
-                className="mt-8 w-full py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold text-xl rounded-lg shadow-lg transform transition-transform active:scale-95"
+                className="w-full max-w-xs py-2 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg rounded-lg shadow-lg transition-transform transform active:scale-95"
             >
                 Awesome!
             </button>

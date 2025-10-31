@@ -53,6 +53,7 @@ export interface Player {
   stats: PlayerStats;
   isOnline?: boolean;
   badgeUnlocks: { [badgeId: string]: number }; // badgeId -> highest tier unlocked
+  subscribedDarePackIds: string[];
   // Progression
   level: number;
   xp: number;
@@ -188,6 +189,8 @@ export interface FloatingGreeting {
   content: string;
 }
 
+export type DareMode = 'AI' | 'COMMUNITY' | 'DARE_PACKS';
+
 export interface PublicLobby {
     id: string;
     hostName: string;
@@ -195,7 +198,7 @@ export interface PublicLobby {
     playerCount: number;
     maxPlayers: number;
     category: Category;
-    dareMode: 'AI' | 'COMMUNITY';
+    dareMode: DareMode;
 }
 
 // --- HALL OF FAME TYPES ---
