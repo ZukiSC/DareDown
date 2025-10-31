@@ -177,7 +177,42 @@ const Lobby: React.FC<LobbyProps> = ({
                   <button onClick={handleCancelCountdown} className="py-2 px-6 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Cancel</button>
               </div>
             ) : (
-               <div className="w-full flex flex-col items-center gap-2">
+               <div className="w-full flex flex-col items-center gap-4">
+                  <div className="w-full grid grid-cols-2 gap-4 text-left">
+                      {/* Max Rounds Setting */}
+                      <div>
+                          <label htmlFor="max-rounds" className="block text-sm font-semibold text-gray-300">Rounds</label>
+                          <select
+                              id="max-rounds"
+                              value={maxRounds}
+                              onChange={(e) => onMaxRoundsChange(Number(e.target.value))}
+                              className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 mt-1 text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          >
+                              <option value={3}>3</option>
+                              <option value={5}>5</option>
+                              <option value={7}>7</option>
+                              <option value={10}>10</option>
+                          </select>
+                      </div>
+                      {/* Dare Mode Setting */}
+                      <div>
+                          <label className="block text-sm font-semibold text-gray-300">Dare Mode</label>
+                          <div className="flex items-center bg-gray-700 rounded-md p-1 mt-1">
+                              <button
+                                  onClick={() => onDareModeChange('AI')}
+                                  className={`w-1/2 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'AI' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                              >
+                                  🤖 AI
+                              </button>
+                              <button
+                                  onClick={() => onDareModeChange('COMMUNITY')}
+                                  className={`w-1/2 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'COMMUNITY' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                              >
+                                  👥 Community
+                              </button>
+                          </div>
+                      </div>
+                  </div>
                   <button onClick={handleStartCountdown} disabled={!canStart} className={`w-full py-3 px-8 text-lg font-bold rounded-lg shadow-lg transition-all duration-300 transform ${canStart ? 'bg-green-500 hover:bg-green-600 text-white animate-pulse' : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}>
                       {getStartButtonText()}
                   </button>

@@ -92,7 +92,7 @@ const initialState: GameStoreState = {
   extraTime: 0,
   isSwappingCategory: false,
   dareArchive: [],
-  dareMode: 'AI',
+  dareMode: 'COMMUNITY',
   submittedDares: [],
   winningDareId: null,
   publicLobbies: [],
