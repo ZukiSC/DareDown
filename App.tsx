@@ -1,8 +1,4 @@
-
-
-
-
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
@@ -16,7 +12,6 @@ import EmojiReactionPanel from './components/EmojiReactionPanel';
 import PowerUpPanel from './components/PowerUpPanel';
 import ChatPanel from './components/ChatPanel';
 import FriendsPanel from './components/FriendsPanel';
-import PlayerProfileModal from './components/PlayerProfileModal';
 import PrivateChatWindow from './components/PrivateChatWindow';
 import DareArchiveModal from './components/DareArchiveModal';
 import ReplayViewerModal from './components/ReplayViewerModal';
@@ -30,6 +25,7 @@ import PublicLobbiesScreen from './components/PublicLobbiesScreen';
 import HallOfFameScreen from './components/HallOfFameScreen';
 import CommunityDaresScreen from './components/CommunityDaresScreen';
 import DarePassScreen from './components/DarePassScreen';
+import ProfileScreen from './components/ProfileScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -47,7 +43,7 @@ const AppContent = () => {
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
         dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies,
         hallOfFame, hallOfFameVotes, communityDarePacks, votedDarePackIds,
-        xpSummary
+        xpSummary, viewingProfileId
     } = useGameStore();
 
     const {
@@ -55,7 +51,7 @@ const AppContent = () => {
     } = useSocialStore();
 
     const {
-        loadingState, isMuted, isChatOpen, isFriendsPanelOpen, viewingProfileId, 
+        loadingState, isMuted, isChatOpen, isFriendsPanelOpen, 
         isArchiveOpen, viewingReplay, greetings, newUnlock, levelUpModalData
     } = useUIStore();
 
@@ -69,18 +65,19 @@ const AppContent = () => {
         handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies,
         handleViewHallOfFame, handleVoteHallOfFame,
         handleViewCommunityDares, handleVoteDarePack, handleCreateDarePack,
-        handleViewDarePass
+        handleViewDarePass, handleViewProfile
     } = useGameStore();
 
     const {
         handleSendFriendRequest, handleAcceptFriendRequest, handleDeclineFriendRequest,
         handleSendMessage, handleReactToMessage, handleSendPrivateMessage, handleOpenPrivateChat,
-        handleClosePrivateChat, claimChallengeReward, purchasePremiumPass, handleSubscribeDarePack
+        handleClosePrivateChat, claimChallengeReward, purchasePremiumPass, handleSubscribeDarePack,
+        handleUpdateBio
     } = useSocialStore();
 
     const {
         handleToggleMute, handleEmojiReaction, setIsChatOpen, setIsFriendsPanelOpen,
-        handleViewProfile, setViewingProfile, setIsArchiveOpen, setViewingReplay, handleSendGreeting,
+        setIsArchiveOpen, setViewingReplay, handleSendGreeting,
         showNotification, showLevelUpNotification, hideLevelUpNotification
     } = useUIStore();
     
@@ -137,7 +134,19 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} onViewProfile={handleViewProfile} />;
+                case GameState.PROFILE:
+                    return viewingProfile ? (
+                        <ProfileScreen
+                            profilePlayer={viewingProfile}
+                            currentPlayer={currentPlayer}
+                            onGoBack={handleGoBack}
+                            onUpdateBio={(bio) => handleUpdateBio(viewingProfile.id, bio)}
+                            onViewReplay={handleViewReplay}
+                        />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">Loading profile...</div>
+                    );
                 case GameState.PUBLIC_LOBBIES:
                     return <PublicLobbiesScreen lobbies={publicLobbies} onJoin={handleJoinPublicLobby} onQuickJoin={handleQuickJoin} onRefresh={handleRefreshLobbies} onGoBack={handleGoBack} />;
                 case GameState.HALL_OF_FAME:
@@ -200,7 +209,7 @@ const AppContent = () => {
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} xpSummary={xpSummary[currentPlayer.id] || []} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} onViewProfile={handleViewProfile}/>;
                 }
             })()}
             </div>
@@ -208,7 +217,7 @@ const AppContent = () => {
     };
   
     const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.HALL_OF_FAME, GameState.COMMUNITY_DARES, GameState.DARE_PASS, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END].includes(gameState);
+    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.HALL_OF_FAME, GameState.COMMUNITY_DARES, GameState.DARE_PASS, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END, GameState.PROFILE].includes(gameState);
 
     if (!currentPlayer) {
         return (
@@ -358,10 +367,6 @@ const AppContent = () => {
             onViewProfile={handleViewProfile}
             onOpenChat={handleOpenPrivateChat}
             />
-        )}
-        
-        {viewingProfile && (
-            <PlayerProfileModal player={viewingProfile} onClose={() => setViewingProfile(null)} onViewReplay={handleViewReplay} />
         )}
         
         {Object.entries(privateChats).map(([friendId, messages]) => {

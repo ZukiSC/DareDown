@@ -1,7 +1,3 @@
-
-
-
-
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
@@ -18,6 +14,8 @@ import { XP_REWARDS } from '../services/levelingService';
 // --- STATE ---
 interface GameStoreState {
   gameState: GameState;
+  previousGameState: GameState | null;
+  viewingProfileId: string | null;
   playersInRoom: string[]; // Array of player IDs
   currentRound: number;
   maxRounds: number;
@@ -86,6 +84,8 @@ const MOCK_DARE_PACKS: DarePack[] = [
 
 const initialState: GameStoreState = {
   gameState: GameState.MAIN_MENU,
+  previousGameState: null,
+  viewingProfileId: null,
   playersInRoom: [],
   currentRound: 0,
   maxRounds: 5,
@@ -113,6 +113,7 @@ const initialState: GameStoreState = {
 // --- ACTIONS ---
 type Action =
   | { type: 'SET_GAME_STATE'; payload: GameState }
+  | { type: 'VIEW_PROFILE'; payload: string }
   | { type: 'CREATE_LOBBY'; payload: { hostId: string } }
   | { type: 'SET_PLAYERS_IN_ROOM'; payload: string[] }
   | { type: 'START_GAME'; payload: { challenge: Challenge } }
@@ -158,6 +159,13 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
   switch (action.type) {
     case 'SET_GAME_STATE':
       return { ...state, gameState: action.payload };
+    case 'VIEW_PROFILE':
+      return { 
+          ...state, 
+          previousGameState: state.gameState,
+          gameState: GameState.PROFILE, 
+          viewingProfileId: action.payload 
+      };
     case 'CREATE_LOBBY':
       return { ...initialState, playersInRoom: [action.payload.hostId], gameState: GameState.CATEGORY_SELECTION };
     case 'SET_PLAYERS_IN_ROOM':
@@ -300,6 +308,13 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
         return initialState;
     case 'GO_BACK':
         switch (state.gameState) {
+            case GameState.PROFILE:
+                return { 
+                    ...state, 
+                    gameState: state.previousGameState === GameState.PROFILE ? GameState.MAIN_MENU : state.previousGameState || GameState.MAIN_MENU,
+                    viewingProfileId: null,
+                    previousGameState: null
+                };
             case GameState.PUBLIC_LOBBIES:
             case GameState.HALL_OF_FAME:
             case GameState.COMMUNITY_DARES:
@@ -384,6 +399,7 @@ interface GameStoreContextType extends GameStoreState {
   handleUsePowerUp: (powerUpId: PowerUpType) => void;
   handleKickPlayer: (playerId: string) => void;
   handleLeaveLobby: () => void;
+  handleViewProfile: (playerId: string) => void;
   handleViewReplay: (dareId: string) => void;
   handlePlayAgain: () => void;
   handleReturnToMenu: () => void;
@@ -914,6 +930,10 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         showNotification("You left the lobby.", "👋");
     };
 
+    const handleViewProfile = useCallback((playerId: string) => {
+        dispatch({ type: 'VIEW_PROFILE', payload: playerId });
+    }, []);
+
     const handleViewReplay = (dareId: string) => {
         const dareToPlay = [...state.dareArchive, ...state.hallOfFame.map(e => e.dare)].find(d => d.id === dareId);
         if (dareToPlay) {
@@ -977,6 +997,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleUsePowerUp,
         handleKickPlayer,
         handleLeaveLobby,
+        handleViewProfile,
         handleViewReplay,
         handlePlayAgain,
         handleReturnToMenu,
@@ -997,7 +1018,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleViewDarePass,
         handleVoteDarePack,
         handleCreateDarePack,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleQuickJoin, handleRefreshLobbies, handleJoinPublicLobby, handleViewPublicLobbies, handleVoteHallOfFame, handleViewHallOfFame]);
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleQuickJoin, handleRefreshLobbies, handleJoinPublicLobby, handleViewPublicLobbies, handleVoteHallOfFame, handleViewHallOfFame, handleViewProfile]);
 
     return (
         <GameStoreContext.Provider value={value}>

@@ -52,6 +52,7 @@ export interface Player {
   gameHistory: GameHistoryEntry[];
   stats: PlayerStats;
   isOnline?: boolean;
+  bio?: string;
   badgeUnlocks: { [badgeId: string]: number }; // badgeId -> highest tier unlocked
   subscribedDarePackIds: string[];
   // Progression
@@ -78,6 +79,7 @@ export interface Dare {
 
 export enum GameState {
   MAIN_MENU = 'MAIN_MENU',
+  PROFILE = 'PROFILE',
   PUBLIC_LOBBIES = 'PUBLIC_LOBBIES',
   HALL_OF_FAME = 'HALL_OF_FAME',
   COMMUNITY_DARES = 'COMMUNITY_DARES',

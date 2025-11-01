@@ -10,9 +10,10 @@ interface MainMenuScreenProps {
   onViewHallOfFame: () => void;
   onViewCommunityDares: () => void;
   onViewDarePass: () => void;
+  onViewProfile: (playerId: string) => void;
 }
 
-const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby, onQuickPlay, onViewHallOfFame, onViewCommunityDares, onViewDarePass }) => {
+const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLobby, onQuickPlay, onViewHallOfFame, onViewCommunityDares, onViewDarePass, onViewProfile }) => {
   const { currentPlayer } = useSocialStore();
   
   const NavButton: React.FC<{onClick: () => void, icon: string, label: string}> = ({ onClick, icon, label }) => (
@@ -31,7 +32,10 @@ const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onCreateLobby, onJoinLo
     <div className="flex flex-col h-full w-full items-center justify-between p-4 animate-fade-in">
       {/* Player Progression Section */}
       {currentPlayer && (
-        <div className="w-full max-w-sm bg-gray-800/50 p-3 rounded-xl border border-purple-500/30 flex items-center gap-4 animate-slide-down">
+        <div 
+          onClick={() => onViewProfile(currentPlayer.id)}
+          className="w-full max-w-sm bg-gray-800/50 p-3 rounded-xl border border-purple-500/30 flex items-center gap-4 animate-slide-down cursor-pointer hover:bg-purple-900/40 transition-colors"
+        >
           <div className="w-16 h-16 flex-shrink-0">
              <PlayerAvatar player={currentPlayer} isCurrentPlayer={false} className="bg-transparent" />
           </div>

@@ -18,7 +18,6 @@ interface UIStoreState {
   notificationPermission: NotificationPermission;
   isChatOpen: boolean;
   isFriendsPanelOpen: boolean;
-  viewingProfileId: string | null;
   isArchiveOpen: boolean;
   viewingReplay: Dare | null;
   greetings: FloatingGreeting[];
@@ -33,7 +32,6 @@ const initialState: UIStoreState = {
   notificationPermission: 'default',
   isChatOpen: false,
   isFriendsPanelOpen: false,
-  viewingProfileId: null,
   isArchiveOpen: false,
   viewingReplay: null,
   greetings: [],
@@ -51,7 +49,6 @@ type Action =
   | { type: 'SET_NOTIFICATION_PERMISSION'; payload: NotificationPermission }
   | { type: 'SET_CHAT_OPEN'; payload: boolean }
   | { type: 'SET_FRIENDS_PANEL_OPEN'; payload: boolean }
-  | { type: 'SET_VIEWING_PROFILE'; payload: string | null }
   | { type: 'SET_ARCHIVE_OPEN'; payload: boolean }
   | { type: 'SET_VIEWING_REPLAY'; payload: Dare | null }
   | { type: 'ADD_GREETING'; payload: FloatingGreeting }
@@ -80,8 +77,6 @@ const uiReducer = (state: UIStoreState, action: Action): UIStoreState => {
         return { ...state, isChatOpen: action.payload };
     case 'SET_FRIENDS_PANEL_OPEN':
         return { ...state, isFriendsPanelOpen: action.payload };
-    case 'SET_VIEWING_PROFILE':
-        return { ...state, viewingProfileId: action.payload };
     case 'SET_ARCHIVE_OPEN':
         return { ...state, isArchiveOpen: action.payload };
     case 'SET_VIEWING_REPLAY':
@@ -101,7 +96,6 @@ const uiReducer = (state: UIStoreState, action: Action): UIStoreState => {
 
 // --- CONTEXT ---
 interface UIStoreContextType extends UIStoreState {
-    viewingProfile: Player | null;
     setLoading: (loading: LoadingState) => void;
     showNotification: (message: string, emoji?: string) => void;
     showUnlock: (notificationData: UnlockNotificationData) => void;
@@ -110,11 +104,9 @@ interface UIStoreContextType extends UIStoreState {
     handleToggleMute: () => void;
     handleEmojiReaction: (emoji: string) => void;
     handleRequestNotifications: () => Promise<void>;
-    handleViewProfile: (playerId: string) => void;
     handleSendGreeting: (content: string) => void;
     setIsChatOpen: (isOpen: boolean) => void;
     setIsFriendsPanelOpen: (isOpen: boolean) => void;
-    setViewingProfile: (player: Player | null) => void;
     setIsArchiveOpen: (isOpen: boolean) => void;
     setViewingReplay: (dare: Dare | null) => void;
 }
@@ -123,7 +115,7 @@ const UIStoreContext = createContext<UIStoreContextType | undefined>(undefined);
 
 export const UIStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(uiReducer, initialState);
-    const { currentPlayer, allPlayers } = useSocialStore();
+    const { currentPlayer } = useSocialStore();
 
     useEffect(() => {
         preloadSounds();
@@ -181,10 +173,6 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         const permission = await requestNotificationPermission();
         dispatch({ type: 'SET_NOTIFICATION_PERMISSION', payload: permission });
     };
-
-    const handleViewProfile = (playerId: string) => {
-        dispatch({ type: 'SET_VIEWING_PROFILE', payload: playerId });
-    };
     
     const handleSendGreeting = (content: string) => {
         const newGreeting: FloatingGreeting = {
@@ -197,13 +185,8 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         setTimeout(() => dispatch({ type: 'REMOVE_GREETING', payload: newGreeting.id }), 5000);
     };
 
-    const viewingProfile = useMemo(() => {
-        return allPlayers.find(p => p.id === state.viewingProfileId) || null;
-    }, [allPlayers, state.viewingProfileId]);
-
     const value = useMemo(() => ({
         ...state,
-        viewingProfile,
         setLoading,
         showNotification,
         showUnlock,
@@ -212,14 +195,12 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         handleToggleMute,
         handleEmojiReaction,
         handleRequestNotifications,
-        handleViewProfile,
         handleSendGreeting,
         setIsChatOpen: (isOpen: boolean) => dispatch({ type: 'SET_CHAT_OPEN', payload: isOpen }),
         setIsFriendsPanelOpen: (isOpen: boolean) => dispatch({ type: 'SET_FRIENDS_PANEL_OPEN', payload: isOpen }),
-        setViewingProfile: (player: Player | null) => dispatch({ type: 'SET_VIEWING_PROFILE', payload: player?.id || null }),
         setIsArchiveOpen: (isOpen: boolean) => dispatch({ type: 'SET_ARCHIVE_OPEN', payload: isOpen }),
         setViewingReplay: (dare: Dare | null) => dispatch({ type: 'SET_VIEWING_REPLAY', payload: dare }),
-    }), [state, viewingProfile, setLoading, showNotification, showUnlock, showLevelUpNotification, hideLevelUpNotification]);
+    }), [state, setLoading, showNotification, showUnlock, showLevelUpNotification, hideLevelUpNotification]);
 
     return (
         <UIStoreContext.Provider value={value}>

@@ -9,6 +9,7 @@ import { getAllBadges } from '../services/customizationService';
 const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'>[] = Array.from({ length: 15 }, (_, i) => ({
     id: `p${i + 1}`,
     name: `Player ${i + 1}`,
+    bio: `Just here for the dares! Currently on a ${Math.floor(Math.random() * 10)}-game winning streak.`,
     customization: { avatarId: `avatar_${(i % 10) + 1}`, colorId: `color_${(i % 8) + 1}`, equippedBadge: null },
     unlocks: [],
     stats: { wins: Math.floor(Math.random() * 20), daresCompleted: Math.floor(Math.random() * 50), daresFailed: Math.floor(Math.random() * 15) },
@@ -30,6 +31,7 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
 
 const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'> & { friends: string[], friendRequests: FriendRequest[] } = {
     ...MOCK_ALL_PLAYERS_DATA[0],
+    bio: 'The original DareDown champion. Challenge me if you dare!',
     friends: ['p3', 'p5'],
     friendRequests: [{ fromId: 'p8', fromName: 'Player 8', fromCustomization: MOCK_ALL_PLAYERS_DATA[7].customization, status: 'pending' as const }],
     hasPremiumPass: true, // Main player has premium for testing
@@ -142,6 +144,7 @@ interface SocialStoreContextType extends SocialStoreState {
   claimChallengeReward: (playerId: string, challengeId: string) => void;
   purchasePremiumPass: (playerId: string) => void;
   // Social
+  handleUpdateBio: (playerId: string, bio: string) => void;
   handleSubscribeDarePack: (packId: string) => void;
   handleSendFriendRequest: (targetId: string) => boolean;
   handleAcceptFriendRequest: (fromId: string) => string | null;
@@ -326,6 +329,10 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         });
     }, [state.allPlayers, updatePlayer]);
 
+    const handleUpdateBio = useCallback((playerId: string, bio: string) => {
+        updatePlayer(playerId, { bio });
+    }, [updatePlayer]);
+
     const handleSubscribeDarePack = useCallback((packId: string) => {
         const isSubscribed = currentPlayer.subscribedDarePackIds.includes(packId);
         const newSubs = isSubscribed
@@ -413,6 +420,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         updateChallengeProgress,
         claimChallengeReward,
         purchasePremiumPass,
+        handleUpdateBio,
         handleSubscribeDarePack,
         handleSendFriendRequest,
         handleAcceptFriendRequest,
@@ -422,7 +430,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         handleOpenPrivateChat,
         handleClosePrivateChat,
         handleSendPrivateMessage,
-    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, checkForBadgeUpgrades, updateChallengeProgress, claimChallengeReward, purchasePremiumPass, handleSubscribeDarePack]);
+    }), [state, currentPlayer, updatePlayer, addPlayer, removePlayer, addXp, checkForBadgeUpgrades, updateChallengeProgress, claimChallengeReward, purchasePremiumPass, handleUpdateBio, handleSubscribeDarePack]);
 
     return (
         <SocialStoreContext.Provider value={value}>
