@@ -16,10 +16,6 @@ const AVATARS: Avatar[] = [
     { id: 'avatar_11', emoji: '🤖', name: 'Cyborg', unlockId: 'level_2' },
     { id: 'avatar_12', emoji: '🧛', name: 'Vampire', unlockId: 'level_5' },
     { id: 'avatar_13', emoji: '✨', name: 'Celestial', unlockId: 'level_10' },
-    // Dare Pass Avatars
-    { id: 'avatar_dp1', emoji: '🏴‍☠️', name: 'Pirate', unlockId: 'darepass_s1_t5' },
-    { id: 'avatar_dp2', emoji: '🐲', name: 'Dragon', unlockId: 'darepass_s1_t15' },
-
 ];
 
 // --- COLOR THEMES ---
@@ -35,9 +31,6 @@ const COLORS: ColorTheme[] = [
     // Unlockable Colors
     { id: 'color_9', name: 'Cyan', primaryClass: 'bg-cyan-500', secondaryClass: 'border-cyan-300', unlockId: 'level_3' },
     { id: 'color_10', name: 'Lime', primaryClass: 'bg-lime-500', secondaryClass: 'border-lime-300', unlockId: 'level_7' },
-    // Dare Pass Colors
-    { id: 'color_dp1', name: 'Gold', primaryClass: 'bg-yellow-400', secondaryClass: 'border-yellow-200', unlockId: 'darepass_s1_t8' },
-    { id: 'color_dp2', name: 'Emerald', primaryClass: 'bg-emerald-500', secondaryClass: 'border-emerald-300', unlockId: 'darepass_s1_t12' },
 ];
 
 // --- BADGES (all are unlockable) ---
@@ -72,14 +65,6 @@ const BADGES: Badge[] = [
              { tier: 1, name: 'Veteran', emoji: '🛡️', unlockRequirement: { stat: 'wins', value: 0, description: 'Reach level 4' } } // Stat is irrelevant here, unlocked by level
         ]
     },
-    {
-        id: 'badge_darepass_s1',
-        name: 'Season 1 Star',
-        description: 'Awarded for completing Tier 1 of the Season 1 Dare Pass.',
-        tiers: [
-             { tier: 1, name: 'Season 1 Star', emoji: '🌟', unlockRequirement: { stat: 'wins', value: 0, description: 'Complete Tier 1 of Dare Pass' } }
-        ]
-    }
 ];
 
 // --- EXPORT FUNCTIONS ---

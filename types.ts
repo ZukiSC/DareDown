@@ -54,11 +54,11 @@ export interface Player {
   isOnline?: boolean;
   bio?: string;
   badgeUnlocks: { [badgeId: string]: number }; // badgeId -> highest tier unlocked
-  subscribedDarePackIds: string[];
   // Progression
   level: number;
   xp: number;
   xpToNextLevel: number;
+  // FIX: Added missing Dare Pass properties to the Player type.
   // Dare Pass
   darePassTier: number;
   darePassStars: number;
@@ -80,10 +80,6 @@ export interface Dare {
 export enum GameState {
   MAIN_MENU = 'MAIN_MENU',
   PROFILE = 'PROFILE',
-  PUBLIC_LOBBIES = 'PUBLIC_LOBBIES',
-  HALL_OF_FAME = 'HALL_OF_FAME',
-  COMMUNITY_DARES = 'COMMUNITY_DARES',
-  DARE_PASS = 'DARE_PASS',
   CATEGORY_SELECTION = 'CATEGORY_SELECTION',
   CUSTOMIZATION = 'CUSTOMIZATION',
   LOBBY = 'LOBBY',
@@ -191,8 +187,11 @@ export interface FloatingGreeting {
   content: string;
 }
 
-export type DareMode = 'AI' | 'COMMUNITY' | 'DARE_PACKS';
+export type DareMode = 'AI' | 'COMMUNITY';
 
+// FIX: Added missing type definitions for new features.
+
+// --- PUBLIC LOBBY TYPES ---
 export interface PublicLobby {
     id: string;
     hostName: string;
@@ -204,44 +203,43 @@ export interface PublicLobby {
 }
 
 // --- HALL OF FAME TYPES ---
-// FIX: Extracted the assignee to its own interface to be used in other components.
 export interface HallOfFameAssignee {
-  id: string;
-  name: string;
-  customization: PlayerCustomization;
+    name: string;
+    customization: PlayerCustomization;
 }
-
 export interface HallOfFameEntry {
-  dare: Dare;
-  assignee: HallOfFameAssignee;
-  votes: number;
+    dare: Dare;
+    votes: number;
+    assignee: HallOfFameAssignee;
 }
 
-// --- DARE PACK TYPES ---
+// --- COMMUNITY DARE TYPES ---
 export interface DarePack {
-  id: string;
-  name: string;
-  description: string;
-  creatorId: string;
-  creatorName: string;
-  dares: string[];
-  votes: number;
-  isOfficial?: boolean;
+    id: string;
+    name: string;
+    description: string;
+    dares: string[];
+    creatorId: string;
+    creatorName: string;
+    votes: number;
+    isOfficial?: boolean;
 }
 
 // --- DARE PASS TYPES ---
 export interface DarePassReward {
-  tier: number;
-  isPremium: boolean;
-  unlockId: string; // Corresponds to an unlockId in customizationService
+    tier: number;
+    isPremium: boolean;
+    unlockId: string;
 }
 
+export type DarePassChallengeType = 'play_minigame' | 'win_game';
+
 export interface DarePassChallenge {
-  id: string;
-  type: 'play_minigame' | 'win_game';
-  description: string;
-  progress: number;
-  goal: number;
-  stars: number;
-  isClaimed: boolean;
+    id: string;
+    type: DarePassChallengeType;
+    description: string;
+    goal: number;
+    stars: number;
+    progress: number;
+    isClaimed: boolean;
 }

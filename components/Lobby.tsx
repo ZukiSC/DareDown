@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Player, DareMode } from '../types';
 import PlayerAvatar from './PlayerAvatar';
@@ -200,21 +199,15 @@ const Lobby: React.FC<LobbyProps> = ({
                           <div className="flex items-center bg-gray-700 rounded-md p-1 mt-1">
                               <button
                                   onClick={() => onDareModeChange('AI')}
-                                  className={`w-1/3 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'AI' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                                  className={`w-1/2 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'AI' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
                               >
                                   🤖 AI
                               </button>
                               <button
                                   onClick={() => onDareModeChange('COMMUNITY')}
-                                  className={`w-1/3 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'COMMUNITY' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                                  className={`w-1/2 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'COMMUNITY' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
                               >
                                   👥 Community
-                              </button>
-                              <button
-                                  onClick={() => onDareModeChange('DARE_PACKS')}
-                                  className={`w-1/3 rounded-md py-1 text-sm font-semibold transition-colors ${dareMode === 'DARE_PACKS' ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                              >
-                                  📦 Packs
                               </button>
                           </div>
                       </div>

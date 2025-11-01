@@ -21,10 +21,6 @@ import DareVotingScreen from './components/DareVotingScreen';
 import DareProofScreen from './components/DareProofScreen';
 import GameEndScreen from './components/GameEndScreen';
 import TeamDareVoteScreen from './components/TeamDareVoteScreen';
-import PublicLobbiesScreen from './components/PublicLobbiesScreen';
-import HallOfFameScreen from './components/HallOfFameScreen';
-import CommunityDaresScreen from './components/CommunityDaresScreen';
-import DarePassScreen from './components/DarePassScreen';
 import ProfileScreen from './components/ProfileScreen';
 import { Toaster } from 'react-hot-toast';
 
@@ -41,8 +37,7 @@ const AppContent = () => {
     const {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
-        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes, publicLobbies,
-        hallOfFame, hallOfFameVotes, communityDarePacks, votedDarePackIds,
+        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes,
         xpSummary, viewingProfileId
     } = useGameStore();
 
@@ -62,16 +57,13 @@ const AppContent = () => {
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
         handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote,
-        handleViewPublicLobbies, handleJoinPublicLobby, handleQuickJoin, handleRefreshLobbies,
-        handleViewHallOfFame, handleVoteHallOfFame,
-        handleViewCommunityDares, handleVoteDarePack, handleCreateDarePack,
-        handleViewDarePass, handleViewProfile
+        handleViewProfile
     } = useGameStore();
 
     const {
         handleSendFriendRequest, handleAcceptFriendRequest, handleDeclineFriendRequest,
         handleSendMessage, handleReactToMessage, handleSendPrivateMessage, handleOpenPrivateChat,
-        handleClosePrivateChat, claimChallengeReward, purchasePremiumPass, handleSubscribeDarePack,
+        handleClosePrivateChat,
         handleUpdateBio
     } = useSocialStore();
 
@@ -134,7 +126,7 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} onViewProfile={handleViewProfile} />;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onViewProfile={handleViewProfile} />;
                 case GameState.PROFILE:
                     return viewingProfile ? (
                         <ProfileScreen
@@ -147,28 +139,6 @@ const AppContent = () => {
                     ) : (
                       <div className="flex items-center justify-center h-full">Loading profile...</div>
                     );
-                case GameState.PUBLIC_LOBBIES:
-                    return <PublicLobbiesScreen lobbies={publicLobbies} onJoin={handleJoinPublicLobby} onQuickJoin={handleQuickJoin} onRefresh={handleRefreshLobbies} onGoBack={handleGoBack} />;
-                case GameState.HALL_OF_FAME:
-                    return <HallOfFameScreen entries={hallOfFame} onVote={handleVoteHallOfFame} votedIds={hallOfFameVotes} onViewReplay={handleViewReplay} onGoBack={handleGoBack} />;
-                case GameState.DARE_PASS:
-                    return <DarePassScreen 
-                                player={currentPlayer} 
-                                onGoBack={handleGoBack} 
-                                onClaimReward={(challengeId) => claimChallengeReward(currentPlayer.id, challengeId)} 
-                                onPurchasePremium={() => purchasePremiumPass(currentPlayer.id)}
-                            />;
-                case GameState.COMMUNITY_DARES:
-                    return <CommunityDaresScreen
-                        packs={communityDarePacks}
-                        subscribedIds={currentPlayer.subscribedDarePackIds}
-                        votedIds={votedDarePackIds}
-                        currentPlayerId={currentPlayer.id}
-                        onSubscribe={handleSubscribeDarePack}
-                        onVote={handleVoteDarePack}
-                        onCreate={handleCreateDarePack}
-                        onGoBack={handleGoBack}
-                    />;
                 case GameState.CATEGORY_SELECTION:
                     return <CategorySelectionScreen onSelectCategory={handleCategorySelect} onGoBack={handleGoBack} />;
                 case GameState.CUSTOMIZATION:
@@ -209,7 +179,7 @@ const AppContent = () => {
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} xpSummary={xpSummary[currentPlayer.id] || []} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onJoinLobby={handleViewPublicLobbies} onQuickPlay={handleQuickJoin} onViewHallOfFame={handleViewHallOfFame} onViewCommunityDares={handleViewCommunityDares} onViewDarePass={handleViewDarePass} onViewProfile={handleViewProfile}/>;
+                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onViewProfile={handleViewProfile}/>;
                 }
             })()}
             </div>
@@ -217,7 +187,7 @@ const AppContent = () => {
     };
   
     const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatButton = ![GameState.MAIN_MENU, GameState.PUBLIC_LOBBIES, GameState.HALL_OF_FAME, GameState.COMMUNITY_DARES, GameState.DARE_PASS, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END, GameState.PROFILE].includes(gameState);
+    const showChatButton = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END, GameState.PROFILE].includes(gameState);
 
     if (!currentPlayer) {
         return (
@@ -390,7 +360,7 @@ const AppContent = () => {
         {viewingReplay && (
             <ReplayViewerModal
                 dare={viewingReplay}
-                player={allPlayers.find(p => p.id === viewingReplay.assigneeId) || hallOfFame.find(e => e.dare.id === viewingReplay.id)?.assignee}
+                player={allPlayers.find(p => p.id === viewingReplay.assigneeId)}
                 onClose={() => setViewingReplay(null)}
             />
         )}

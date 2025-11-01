@@ -1,11 +1,11 @@
 import React from 'react';
 // FIX: Imported HallOfFameAssignee to be used in the props.
-import { Dare, Player, HallOfFameAssignee } from '../types';
+import { Dare, Player } from '../types';
 
 interface ReplayViewerModalProps {
   dare: Dare;
   // FIX: Updated the player prop to accept either a full Player object or a HallOfFameAssignee object.
-  player: (Player | HallOfFameAssignee) | undefined;
+  player: Player | undefined;
   onClose: () => void;
 }
 

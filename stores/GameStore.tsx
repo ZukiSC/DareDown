@@ -1,7 +1,7 @@
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
-import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, PublicLobby, HallOfFameEntry, DarePack, Avatar, Badge, ColorTheme, DareMode } from '../types';
+import { GameState, Player, Dare, Category, Challenge, GameHistoryEntry, PlayerCustomization, PowerUpType, MiniGameType, Avatar, Badge, ColorTheme, DareMode } from '../types';
 import { getChallengeForRoom } from '../services/challengeService';
 import { generateDare } from '../services/geminiService';
 import { playSound } from '../services/audioService';
@@ -31,56 +31,12 @@ interface GameStoreState {
   dareMode: DareMode;
   submittedDares: Dare[];
   winningDareId: string | null;
-  publicLobbies: PublicLobby[];
-  hallOfFame: HallOfFameEntry[];
-  hallOfFameVotes: string[]; // Dare IDs the player has voted for
-  communityDarePacks: DarePack[];
-  votedDarePackIds: string[];
   xpSummary: { [playerId: string]: { reason: string; amount: number }[] };
   lastRoundScores: {
     scores: { playerId: string; score: number }[];
     challengeType: MiniGameType;
   } | null;
 }
-
-const MOCK_HALL_OF_FAME: HallOfFameEntry[] = [
-    {
-        dare: { id: 'hof_dare_1', text: "Sing everything you say for the next 5 minutes like an opera star.", assigneeId: 'p2', status: 'completed', replayUrl: 'mock-hof-replay-1.mp4'},
-        assignee: { id: 'p2', name: 'Player 2', customization: { avatarId: 'avatar_2', colorId: 'color_2', equippedBadge: null } },
-        votes: 127
-    },
-    {
-        dare: { id: 'hof_dare_2', text: "Do your best impression of a chicken laying an egg.", assigneeId: 'p4', status: 'completed', replayUrl: 'mock-hof-replay-2.mp4' },
-        assignee: { id: 'p4', name: 'Player 4', customization: { avatarId: 'avatar_4', colorId: 'color_4', equippedBadge: { id: 'badge_winner', tier: 1 } } },
-        votes: 98
-    },
-    {
-        dare: { id: 'hof_dare_3', text: "Create a hat out of toilet paper and wear it for the rest of the game.", assigneeId: 'p6', status: 'completed', replayUrl: 'mock-hof-replay-3.mp4' },
-        assignee: { id: 'p6', name: 'Player 6', customization: { avatarId: 'avatar_6', colorId: 'color_6', equippedBadge: null } },
-        votes: 75
-    },
-];
-
-const MOCK_DARE_PACKS: DarePack[] = [
-    {
-        id: 'pack_1', name: 'Awkward Family Dinner', description: 'Dares perfect for making your next family meal unforgettable... for all the wrong reasons.',
-        creatorId: 'p3', creatorName: 'Player 3',
-        dares: ['Only speak in questions.', 'Pretend you are a food critic reviewing the meal.', 'Refer to a sibling by the wrong name all night.'],
-        votes: 256, isOfficial: true,
-    },
-    {
-        id: 'pack_2', name: 'Cringey TikTok Dares', description: 'Unleash your inner influencer with these viral-worthy (and cringey) challenges.',
-        creatorId: 'p5', creatorName: 'Player 5',
-        dares: ['Do the latest TikTok dance trend.', 'Create a "story time" video about a boring event.', 'Record a "get ready with me" video.'],
-        votes: 189,
-    },
-    {
-        id: 'pack_3', name: '90s Nostalgia', description: 'A blast from the past! These dares will have you feeling like you are back in the 90s.',
-        creatorId: 'p8', creatorName: 'Player 8',
-        dares: ['Sing the Fresh Prince of Bel-Air theme song.', 'Try to explain what a dial-up modem sounds like.', 'Do the Macarena.'],
-        votes: 152,
-    }
-];
 
 const initialState: GameStoreState = {
   gameState: GameState.MAIN_MENU,
@@ -101,11 +57,6 @@ const initialState: GameStoreState = {
   dareMode: 'COMMUNITY',
   submittedDares: [],
   winningDareId: null,
-  publicLobbies: [],
-  hallOfFame: MOCK_HALL_OF_FAME,
-  hallOfFameVotes: [],
-  communityDarePacks: MOCK_DARE_PACKS,
-  votedDarePackIds: [],
   xpSummary: {},
   lastRoundScores: null,
 };
@@ -143,12 +94,6 @@ type Action =
   | { type: 'VOTE_FOR_TEAMMATE'; payload: { voterId: string, targetId: string } }
   // FIX: Updated FINALIZE_TEAM_VOTE to carry losingTeamPlayers in payload.
   | { type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: Player[] } }
-  | { type: 'VIEW_PUBLIC_LOBBIES'; payload: { lobbies: PublicLobby[] } }
-  | { type: 'JOIN_LOBBY'; payload: { hostId: string; playerId: string } }
-  | { type: 'REFRESH_LOBBIES'; payload: { lobbies: PublicLobby[] } }
-  | { type: 'VOTE_HALL_OF_FAME'; payload: string } // dareId
-  | { type: 'VOTE_DARE_PACK'; payload: string } // packId
-  | { type: 'CREATE_DARE_PACK'; payload: Omit<DarePack, 'id' | 'votes'> }
   | { type: 'ADD_XP_SUMMARY'; payload: { playerId: string, reason: string, amount: number } }
   | { type: 'CLEAR_XP_SUMMARY' }
   | { type: 'PASS_DARE'; payload: { newLoserId: string, newDare: Dare } };
@@ -315,11 +260,6 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
                     viewingProfileId: null,
                     previousGameState: null
                 };
-            case GameState.PUBLIC_LOBBIES:
-            case GameState.HALL_OF_FAME:
-            case GameState.COMMUNITY_DARES:
-            case GameState.DARE_PASS:
-                return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CATEGORY_SELECTION:
                 return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CUSTOMIZATION:
@@ -327,43 +267,6 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             default:
                 return state;
         }
-    case 'VIEW_PUBLIC_LOBBIES':
-        return { ...state, gameState: GameState.PUBLIC_LOBBIES, publicLobbies: action.payload.lobbies };
-    case 'JOIN_LOBBY':
-        return { ...state, gameState: GameState.LOBBY, playersInRoom: [action.payload.hostId, action.payload.playerId] };
-    case 'REFRESH_LOBBIES':
-        return { ...state, publicLobbies: action.payload.lobbies };
-    case 'VOTE_HALL_OF_FAME':
-        if (state.hallOfFameVotes.includes(action.payload)) return state;
-        return {
-            ...state,
-            hallOfFame: state.hallOfFame.map(entry => 
-                entry.dare.id === action.payload ? { ...entry, votes: entry.votes + 1 } : entry
-            ),
-            hallOfFameVotes: [...state.hallOfFameVotes, action.payload]
-        };
-    case 'VOTE_DARE_PACK': {
-        const { payload: packId } = action;
-        if (state.votedDarePackIds.includes(packId)) return state;
-        return {
-            ...state,
-            communityDarePacks: state.communityDarePacks.map(pack =>
-                pack.id === packId ? { ...pack, votes: pack.votes + 1 } : pack
-            ),
-            votedDarePackIds: [...state.votedDarePackIds, packId]
-        };
-    }
-    case 'CREATE_DARE_PACK': {
-        const newPack: DarePack = {
-            ...action.payload,
-            id: `pack_${Date.now()}`,
-            votes: 0,
-        };
-        return {
-            ...state,
-            communityDarePacks: [newPack, ...state.communityDarePacks]
-        };
-    }
     case 'ADD_XP_SUMMARY': {
       const { playerId, reason, amount } = action.payload;
       const playerSummary = state.xpSummary[playerId] || [];
@@ -410,47 +313,13 @@ interface GameStoreContextType extends GameStoreState {
   handleDareVote: (dareId: string) => void;
   handleJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
   handleTeamMateVote: (targetId: string) => void;
-  handleViewPublicLobbies: () => void;
-  handleJoinPublicLobby: (lobbyId: string) => void;
-  handleQuickJoin: () => void;
-  handleRefreshLobbies: () => void;
-  handleViewHallOfFame: () => void;
-  handleVoteHallOfFame: (dareId: string) => void;
-  handleViewCommunityDares: () => void;
-  handleViewDarePass: () => void;
-  handleVoteDarePack: (packId: string) => void;
-  handleCreateDarePack: (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => void;
 }
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
 
-// Mock data generator for public lobbies
-const generateMockLobbies = (allPlayers: Player[], count: number): PublicLobby[] => {
-    const lobbies: PublicLobby[] = [];
-    const availableHosts = allPlayers.filter(p => p.id !== 'p1');
-
-    for (let i = 0; i < count; i++) {
-        if (availableHosts.length === 0) break;
-        const hostIndex = Math.floor(Math.random() * availableHosts.length);
-        const host = availableHosts.splice(hostIndex, 1)[0];
-        
-        lobbies.push({
-            id: `lobby_${host.id}`,
-            hostName: host.name,
-            hostCustomization: host.customization,
-            playerCount: Math.floor(Math.random() * 6) + 2, // 2-7 players
-            maxPlayers: 8,
-            category: ['General', 'Trivia', 'Speed/Reflex', 'Puzzles'][Math.floor(Math.random() * 4)] as Category,
-            dareMode: (['AI', 'COMMUNITY', 'DARE_PACKS'] as DareMode[])[Math.floor(Math.random() * 3)],
-        });
-    }
-    return lobbies;
-};
-
-
 export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(gameReducer, initialState);
-    const { currentPlayer, allPlayers, updatePlayer, addXp, updateChallengeProgress, checkForBadgeUpgrades } = useSocialStore();
+    const { currentPlayer, allPlayers, updatePlayer, addXp, checkForBadgeUpgrades } = useSocialStore();
     const { setLoading, showNotification, showUnlock, setViewingReplay } = useUIStore();
 
     // --- SELECTORS / DERIVED STATE ---
@@ -485,7 +354,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         if(winner) {
             addXp(winner.id, XP_REWARDS.GAME_WON);
             dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: winner.id, reason: 'Game Won!', amount: XP_REWARDS.GAME_WON } });
-            updateChallengeProgress(winner.id, 'win_game', 1);
         }
 
         const gameHistoryEntry: GameHistoryEntry = {
@@ -518,7 +386,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         });
         
         dispatch({ type: 'END_GAME' });
-    }, [players, state.currentDare, updatePlayer, addXp, updateChallengeProgress, checkForBadgeUpgrades, currentPlayer, showUnlock]);
+    }, [players, state.currentDare, updatePlayer, addXp, checkForBadgeUpgrades, currentPlayer, showUnlock]);
 
     const handleNextRound = useCallback(() => {
         const potentialRecipients = players.filter(p => p.id !== state.roundLoserId);
@@ -562,60 +430,21 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             setLoading({ active: false, message: '' });
         }
     }, [players, currentPlayer, handleNextRound, setLoading]);
-
-    const generateDareFromPacksAndShow = useCallback(async (loser: Player) => {
-        setLoading({ active: true, message: 'Finding a dare from your packs...' });
-        try {
-            const host = players.find(p => p.isHost);
-            if (!host) throw new Error("Host not found");
-    
-            const hostSubscribedPacks = state.communityDarePacks.filter(pack => 
-                host.subscribedDarePackIds.includes(pack.id)
-            );
-    
-            const allSubscribedDares = hostSubscribedPacks.flatMap(pack => pack.dares);
-    
-            if (allSubscribedDares.length === 0) {
-                showNotification('No dares in subscribed packs. Using AI!', '🤖');
-                await generateAndShowDare(loser); // Fallback to AI
-                return;
-            }
-    
-            const dareText = allSubscribedDares[Math.floor(Math.random() * allSubscribedDares.length)];
-            const newDare: Dare = {
-                id: `d_${Date.now()}`, text: dareText, assigneeId: loser.id, status: 'pending',
-            };
-            dispatch({ type: 'SET_DARE', payload: { dare: newDare, loserId: loser.id } });
-            if (loser.id === currentPlayer.id) {
-                showLocalNotification("It's your turn!", { body: `Your dare is: ${newDare.text}` });
-            }
-    
-        } catch (error) {
-            console.error("Failed to generate dare from packs:", error);
-            showNotification('Error finding dare from packs. Using AI!', '🤖');
-            await generateAndShowDare(loser);
-        } finally {
-            setLoading({ active: false, message: '' });
-        }
-    }, [players, state.communityDarePacks, currentPlayer, setLoading, showNotification, generateAndShowDare]);
     
     useEffect(() => {
         if (roundLoser && ![GameState.DARE_SCREEN, GameState.DARE_SUBMISSION, GameState.DARE_VOTING, GameState.DARE_PROOF, GameState.DARE_LIVE_STREAM].includes(state.gameState)) {
             if (state.dareMode === 'AI') {
                 generateAndShowDare(roundLoser);
-            } else if (state.dareMode === 'DARE_PACKS') {
-                generateDareFromPacksAndShow(roundLoser);
             } else {
                 dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_SUBMISSION });
             }
         }
-    }, [roundLoser, state.gameState, state.dareMode, generateAndShowDare, generateDareFromPacksAndShow]);
+    }, [roundLoser, state.gameState, state.dareMode, generateAndShowDare]);
 
     const handleMiniGameEnd = useCallback((playerScores: Map<string, number>, challengeType: MiniGameType) => {
         players.forEach(p => {
             addXp(p.id, XP_REWARDS.GAME_PLAYED);
             dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: p.id, reason: 'Played a round', amount: XP_REWARDS.GAME_PLAYED } });
-            updateChallengeProgress(p.id, 'play_minigame', 1);
         });
 
         const teamScores = { blue: { totalScore: 0, playerCount: 0 }, orange: { totalScore: 0, playerCount: 0 } };
@@ -656,7 +485,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         } else {
             handleNextRound();
         }
-    }, [players, handleNextRound, addXp, updateChallengeProgress]);
+    }, [players, handleNextRound, addXp]);
 
     const handleSuddenDeathEnd = (loserId: string) => {
         const loserPlayer = players.find(p => p.id === loserId);
@@ -849,41 +678,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }, (otherVoters.length + 1) * 500);
     };
 
-    const handleViewPublicLobbies = () => {
-        const lobbies = generateMockLobbies(allPlayers, 5);
-        dispatch({ type: 'VIEW_PUBLIC_LOBBIES', payload: { lobbies } });
-    };
-
-    const handleRefreshLobbies = () => {
-        const lobbies = generateMockLobbies(allPlayers, 5);
-        dispatch({ type: 'REFRESH_LOBBIES', payload: { lobbies } });
-    };
-
-    const handleJoinPublicLobby = (lobbyId: string) => {
-        const hostId = lobbyId.replace('lobby_', '');
-        updatePlayer(currentPlayer.id, { isHost: false, score: 0, teamId: null, powerUps: [], category: undefined });
-        dispatch({ type: 'JOIN_LOBBY', payload: { hostId, playerId: currentPlayer.id } });
-    };
-    
-    const handleQuickJoin = () => {
-        setLoading({ active: true, message: 'Finding a game...' });
-        // Simulate fetching lobbies
-        setTimeout(() => {
-            const lobbies = generateMockLobbies(allPlayers, 5);
-            const availableLobbies = lobbies.filter(l => l.playerCount < l.maxPlayers);
-            
-            if (availableLobbies.length > 0) {
-                const lobbyToJoin = availableLobbies[Math.floor(Math.random() * availableLobbies.length)];
-                handleJoinPublicLobby(lobbyToJoin.id);
-                showNotification(`Joining ${lobbyToJoin.hostName}'s lobby!`, '🚀');
-            } else {
-                showNotification('No available lobbies found for Quick Play.', '😢');
-            }
-            setLoading({ active: false, message: '' });
-        }, 1000); // Simulate network delay
-    };
-
-
     const handleCreateLobby = () => {
         updatePlayer(currentPlayer.id, { isHost: true, score: 0, teamId: null });
         dispatch({ type: 'CREATE_LOBBY', payload: { hostId: currentPlayer.id } });
@@ -935,7 +729,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     }, []);
 
     const handleViewReplay = (dareId: string) => {
-        const dareToPlay = [...state.dareArchive, ...state.hallOfFame.map(e => e.dare)].find(d => d.id === dareId);
+        const dareToPlay = state.dareArchive.find(d => d.id === dareId);
         if (dareToPlay) {
             setViewingReplay(dareToPlay);
         }
@@ -955,29 +749,6 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
 
     const handleGoBack = () => {
         dispatch({ type: 'GO_BACK' });
-    };
-
-    const handleViewHallOfFame = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.HALL_OF_FAME });
-    
-    const handleVoteHallOfFame = (dareId: string) => {
-        const entry = state.hallOfFame.find(e => e.dare.id === dareId);
-        if (entry) {
-            addXp(entry.assignee.id, XP_REWARDS.REPLAY_VOTE);
-        }
-        dispatch({ type: 'VOTE_HALL_OF_FAME', payload: dareId });
-    };
-
-    const handleViewCommunityDares = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.COMMUNITY_DARES });
-    const handleViewDarePass = () => dispatch({ type: 'SET_GAME_STATE', payload: GameState.DARE_PASS });
-    const handleVoteDarePack = (packId: string) => dispatch({ type: 'VOTE_DARE_PACK', payload: packId });
-    const handleCreateDarePack = (packData: Omit<DarePack, 'id' | 'votes' | 'creatorId' | 'creatorName'>) => {
-        if (!currentPlayer) return;
-        const fullPackData = {
-            ...packData,
-            creatorId: currentPlayer.id,
-            creatorName: currentPlayer.name,
-        };
-        dispatch({ type: 'CREATE_DARE_PACK', payload: fullPackData });
     };
 
     const value = useMemo(() => ({
@@ -1008,17 +779,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         handleDareVote,
         handleJoinTeam,
         handleTeamMateVote,
-        handleViewPublicLobbies,
-        handleJoinPublicLobby,
-        handleQuickJoin,
-        handleRefreshLobbies,
-        handleViewHallOfFame,
-        handleVoteHallOfFame,
-        handleViewCommunityDares,
-        handleViewDarePass,
-        handleVoteDarePack,
-        handleCreateDarePack,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleQuickJoin, handleRefreshLobbies, handleJoinPublicLobby, handleViewPublicLobbies, handleVoteHallOfFame, handleViewHallOfFame, handleViewProfile]);
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleViewProfile]);
 
     return (
         <GameStoreContext.Provider value={value}>
