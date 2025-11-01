@@ -1,4 +1,5 @@
 import React from 'react';
+// FIX: Import missing DarePassReward type.
 import { Player, DarePassReward, Avatar, ColorTheme, Badge } from '../types';
 import { getItemByUnlockId } from '../services/customizationService';
 

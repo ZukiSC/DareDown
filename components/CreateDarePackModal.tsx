@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+// FIX: Import missing DarePack type.
 import { DarePack } from '../types';
 
 interface CreateDarePackModalProps {

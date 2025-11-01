@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Player, Dare } from '../types';
 
@@ -12,12 +13,6 @@ interface LeaderboardProps {
 const Leaderboard: React.FC<LeaderboardProps> = ({ players, currentPlayer, onViewProfile, currentDare, onViewReplay }) => {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const showReplayButton = currentDare?.status === 'completed' && currentDare.replayUrl;
-
-  const getTeamColor = (teamId: 'blue' | 'orange' | null) => {
-    if (teamId === 'blue') return 'text-blue-400';
-    if (teamId === 'orange') return 'text-orange-400';
-    return '';
-  }
 
   return (
     <div className="flex flex-col items-center w-full p-2">
@@ -38,7 +33,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ players, currentPlayer, onVie
           >
             <div className="flex items-center">
               <span className="text-xl font-bold w-8">{index + 1}</span>
-              <p className={`text-lg font-semibold ${getTeamColor(player.teamId)}`}>{player.name}</p>
+              <p className="text-lg font-semibold">{player.name}</p>
             </div>
             <p className="text-lg font-bold text-purple-300">{player.score} pts</p>
           </div>

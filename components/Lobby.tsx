@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Player, DareMode } from '../types';
 import PlayerAvatar from './PlayerAvatar';
@@ -15,24 +16,19 @@ interface LobbyProps {
   onMaxRoundsChange: (rounds: number) => void;
   dareMode: DareMode;
   onDareModeChange: (mode: DareMode) => void;
-  onJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
+  lobbyCode: string | null;
 }
 
 const Lobby: React.FC<LobbyProps> = ({ 
   players, currentPlayer, onStartGame, onViewProfile, showNotification, onKickPlayer, 
   onLeaveLobby, maxRounds, onMaxRoundsChange, dareMode, onDareModeChange,
-  onJoinTeam
+  lobbyCode
 }) => {
   const [kickConfirmPlayer, setKickConfirmPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const { activeReactions } = useUIStore();
-  const [draggingOverTeam, setDraggingOverTeam] = useState<'blue' | 'orange' | null>(null);
   
-  const teamBlue = players.filter(p => p.teamId === 'blue');
-  const teamOrange = players.filter(p => p.teamId === 'orange');
-  const unassigned = players.filter(p => p.teamId === null);
-  
-  const canStart = currentPlayer.isHost && players.length >= 2 && teamBlue.length > 0 && teamOrange.length > 0 && unassigned.length === 0;
+  const canStart = currentPlayer.isHost && players.length >= 2;
 
   useEffect(() => {
     if (countdown === null) return;
@@ -49,9 +45,6 @@ const Lobby: React.FC<LobbyProps> = ({
   const handleCancelCountdown = () => setCountdown(null);
   
   const handleAvatarClick = (player: Player) => {
-    // Prevent profile view while dragging
-    if (player.id === currentPlayer.id && currentPlayer.teamId === null) return;
-
     if (currentPlayer.isHost && player.id !== currentPlayer.id) {
       setKickConfirmPlayer(player);
     } else {
@@ -65,59 +58,31 @@ const Lobby: React.FC<LobbyProps> = ({
       setKickConfirmPlayer(null);
     }
   };
-  
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, playerId: string) => {
-    if (playerId !== currentPlayer.id) {
-        e.preventDefault();
-        return;
+
+  const handleCopyCode = () => {
+    if (lobbyCode) {
+      navigator.clipboard.writeText(lobbyCode);
+      showNotification('Lobby code copied!', '📋');
     }
-    e.dataTransfer.setData('playerId', playerId);
-  };
-  
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, teamId: 'blue' | 'orange') => {
-      e.preventDefault();
-      if (currentPlayer.teamId === null) {
-          setDraggingOverTeam(teamId);
-      }
-  };
-  
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setDraggingOverTeam(null);
-  };
-  
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, teamId: 'blue' | 'orange') => {
-      e.preventDefault();
-      const playerId = e.dataTransfer.getData('playerId');
-      if (playerId === currentPlayer.id) {
-          onJoinTeam(teamId);
-      }
-      setDraggingOverTeam(null);
   };
 
-
-  const renderPlayerList = (list: Player[], isUnassignedList?: boolean) => (
-    <div className={`grid grid-cols-3 sm:grid-cols-4 gap-2 rounded-lg min-h-[90px]`}>
+  const renderPlayerList = (list: Player[]) => (
+    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-4 p-4 rounded-lg bg-gray-900/40">
       {list.map((player) => {
          const reaction = activeReactions.find(r => r.playerId === player.id)?.emoji;
-         const isDraggable = isUnassignedList && player.id === currentPlayer.id;
         return <PlayerAvatar 
                     key={player.id} 
                     player={player} 
                     reaction={reaction} 
                     isCurrentPlayer={player.id === currentPlayer.id} 
-                    onClick={() => handleAvatarClick(player)} 
-                    isDraggable={isDraggable}
-                    onDragStart={(e) => handleDragStart(e, player.id)}
+                    onClick={() => handleAvatarClick(player)}
                 />;
       })}
     </div>
   );
 
   const getStartButtonText = () => {
-    if (unassigned.length > 0) return 'All players must join a team!';
-    if (teamBlue.length === 0 || teamOrange.length === 0) return 'Teams must have players!';
-    if (players.length < 2) return `Waiting for players... (${players.length}/2)`;
+    if (players.length < 2) return `Waiting for more players... (${players.length}/2)`;
     return 'Start Game!';
   }
 
@@ -126,49 +91,26 @@ const Lobby: React.FC<LobbyProps> = ({
       <button onClick={onLeaveLobby} className="absolute top-2 left-2 text-sm px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-full transition-colors transform active:scale-95 z-10">
           Leave Lobby
       </button>
-      <div className="flex flex-col w-full items-center text-center p-1">
+      {currentPlayer.isHost && lobbyCode && (
+        <div className="absolute top-2 right-2 bg-gray-900/80 p-2 rounded-lg text-center border border-purple-500/30">
+          <p className="text-xs text-gray-400">LOBBY CODE</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xl font-bold tracking-widest">{lobbyCode}</p>
+            <button onClick={handleCopyCode} className="text-xl" title="Copy Code">📋</button>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col w-full h-full items-center text-center p-1">
         <div className="pt-4 flex-shrink-0">
-          <h1 className="text-4xl font-bold text-purple-400 drop-shadow-lg mb-1">Team Lobby</h1>
-          <p className="text-md text-gray-300">Join a team to begin!</p>
+          <h1 className="text-4xl font-bold text-purple-400 drop-shadow-lg mb-1">Game Lobby</h1>
+          <p className="text-md text-gray-300">Waiting for players to join...</p>
         </div>
         
-        <div className="w-full flex flex-col gap-4 my-4">
-            {/* Team Blue */}
-            <div 
-                className={`p-2 rounded-lg transition-all duration-200 bg-blue-900/40 ${draggingOverTeam === 'blue' ? 'border-2 border-dashed border-blue-400 bg-blue-900/80 scale-105' : 'border-2 border-transparent'}`}
-                onDragOver={(e) => handleDragOver(e, 'blue')}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, 'blue')}
-            >
-                <h2 className="text-2xl font-bold text-blue-400 mb-2">Team Blue</h2>
-                {renderPlayerList(teamBlue)}
-            </div>
-            {/* Team Orange */}
-             <div 
-                className={`p-2 rounded-lg transition-all duration-200 bg-orange-900/40 ${draggingOverTeam === 'orange' ? 'border-2 border-dashed border-orange-400 bg-orange-900/80 scale-105' : 'border-2 border-transparent'}`}
-                onDragOver={(e) => handleDragOver(e, 'orange')}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, 'orange')}
-            >
-                <h2 className="text-2xl font-bold text-orange-400 mb-2">Team Orange</h2>
-                {renderPlayerList(teamOrange)}
-            </div>
-            
-            {unassigned.length > 0 && (
-                <div className="w-full mt-4">
-                    <h3 className="text-lg font-semibold mb-2">
-                         {currentPlayer.teamId === null ? "Drag your avatar to a team!" : "Unassigned Players"}
-                    </h3>
-                    {renderPlayerList(unassigned, true)}
-                </div>
-            )}
+        <div className="w-full flex-grow my-4 overflow-y-auto">
+           {renderPlayerList(players)}
         </div>
         
         <div className="w-full p-4 bg-gray-800/80 backdrop-blur-sm border-t border-purple-500/30 flex-shrink-0">
-          {currentPlayer.teamId !== null && !countdown && (
-              <button onClick={() => onJoinTeam(null)} className="mb-2 px-4 py-1.5 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg text-sm">Leave Team</button>
-          )}
-
           {currentPlayer.isHost ? (
             countdown !== null ? (
               <div className="w-full flex flex-col items-center gap-2">

@@ -1,12 +1,19 @@
+
+// FIX: Add DarePassChallenge to import.
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo, PropsWithChildren } from 'react';
-import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme, BadgeTier } from '../types';
+import { Player, ChatMessage, PrivateChatMessage, FriendRequest, PlayerCustomization, Avatar, Badge, ColorTheme, BadgeTier, DarePassChallenge } from '../types';
 import { calculateLevelInfo, calculateXpForLevel, getRewardForLevel } from '../services/levelingService';
 import { getAllBadges } from '../services/customizationService';
+import { getInitialChallenges } from '../services/darePassService';
+
 
 // --- MOCK DATA ---
 const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'>[] = Array.from({ length: 15 }, (_, i) => ({
     id: `p${i + 1}`,
     name: `Player ${i + 1}`,
+    email: `player${i+1}@daredown.com`,
+    password: 'password123',
+    isAdmin: false,
     bio: `Just here for the dares! Currently on a ${Math.floor(Math.random() * 10)}-game winning streak.`,
     customization: { avatarId: `avatar_${(i % 10) + 1}`, colorId: `color_${(i % 8) + 1}`, equippedBadge: null },
     unlocks: [],
@@ -19,16 +26,27 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     xp: 0,
     xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
     badgeUnlocks: {},
+    // FIX: Add Dare Pass properties to mock data
+    darePassTier: 1,
+    darePassStars: 0,
+    hasPremiumPass: false,
+    darePassChallenges: getInitialChallenges(),
 }));
 
 const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' | 'teamId'> & { friends: string[], friendRequests: FriendRequest[] } = {
     ...MOCK_ALL_PLAYERS_DATA[0],
+    email: 'admin@daredown.com',
+    isAdmin: true,
     bio: 'The original DareDown champion. Challenge me if you dare!',
     friends: ['p3', 'p5'],
     friendRequests: [{ fromId: 'p8', fromName: 'Player 8', fromCustomization: MOCK_ALL_PLAYERS_DATA[7].customization, status: 'pending' as const }],
     stats: { wins: 5, daresCompleted: 12, daresFailed: 3 },
     badgeUnlocks: { 'badge_dare_survivor': 2, 'badge_winner': 2 }, // Unlocked silver for both
     customization: { avatarId: 'avatar_1', colorId: 'color_1', equippedBadge: { id: 'badge_dare_survivor', tier: 2 } },
+    // FIX: Add Dare Pass properties to initial player
+    hasPremiumPass: true,
+    darePassTier: 3,
+    darePassStars: 5,
 };
 MOCK_ALL_PLAYERS_DATA[0] = initialPlayer;
 MOCK_ALL_PLAYERS_DATA[2].friends.push('p1');
@@ -38,20 +56,21 @@ MOCK_ALL_PLAYERS_DATA[4].friends.push('p1');
 // --- STATE ---
 interface SocialStoreState {
   allPlayers: Player[];
-  currentPlayerId: string;
+  currentPlayerId: string | null;
   chatMessages: ChatMessage[];
   privateChats: { [key: string]: PrivateChatMessage[] };
 }
 
 const initialState: SocialStoreState = {
   allPlayers: MOCK_ALL_PLAYERS_DATA.map(p => ({ ...p, score: 0, isHost: false, powerUps: [], category: undefined, teamId: null })),
-  currentPlayerId: 'p1',
+  currentPlayerId: null,
   chatMessages: [],
   privateChats: {},
 };
 
 // --- ACTIONS ---
 type Action =
+  | { type: 'SET_CURRENT_PLAYER'; payload: string | null }
   | { type: 'UPDATE_PLAYER'; payload: { playerId: string; updates: Partial<Player> } }
   | { type: 'ADD_PLAYER'; payload: Player }
   | { type: 'REMOVE_PLAYER'; payload: string }
@@ -64,6 +83,8 @@ type Action =
 // --- REDUCER ---
 const socialReducer = (state: SocialStoreState, action: Action): SocialStoreState => {
   switch (action.type) {
+    case 'SET_CURRENT_PLAYER':
+        return { ...state, currentPlayerId: action.payload };
     case 'UPDATE_PLAYER':
       return {
         ...state,
@@ -98,16 +119,16 @@ const socialReducer = (state: SocialStoreState, action: Action): SocialStoreStat
         };
     }
     case 'ADD_PRIVATE_CHAT_MESSAGES':
-        return {
-            ...state,
-            privateChats: {
-                ...state.privateChats,
-                [action.payload.friendId]: [
-                    ...(state.privateChats[action.payload.friendId] || []),
-                    ...action.payload.messages
-                ]
-            }
-        };
+      return {
+        ...state,
+        privateChats: {
+          ...state.privateChats,
+          [action.payload.friendId]: [
+            ...(state.privateChats[action.payload.friendId] || []),
+            ...action.payload.messages,
+          ],
+        },
+      };
     case 'OPEN_PRIVATE_CHAT':
         if (state.privateChats[action.payload]) return state;
         return { ...state, privateChats: { ...state.privateChats, [action.payload]: [] } };
@@ -123,12 +144,16 @@ const socialReducer = (state: SocialStoreState, action: Action): SocialStoreStat
 
 // --- CONTEXT ---
 interface SocialStoreContextType extends SocialStoreState {
-  currentPlayer: Player;
+  currentPlayer: Player | null;
   updatePlayer: (playerId: string, updates: Partial<Player>) => void;
   addPlayer: (player: Player) => void;
   removePlayer: (playerId: string) => void;
   addXp: (playerId: string, amount: number) => Promise<{ leveledUp: boolean; newLevel?: number; reward?: Avatar | ColorTheme | Badge } | null>;
   checkForBadgeUpgrades: (playerId: string) => { badge: Badge, tier: BadgeTier } | null;
+  // Auth
+  handleLogin: (email: string, pass: string) => Promise<boolean>;
+  handleSignup: (name: string, email: string, pass: string) => Promise<boolean>;
+  handleLogout: () => void;
   // Social
   handleUpdateBio: (playerId: string, bio: string) => void;
   handleSendFriendRequest: (targetId: string) => boolean;
@@ -146,10 +171,11 @@ const SocialStoreContext = createContext<SocialStoreContextType | undefined>(und
 export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(socialReducer, initialState);
 
-    const currentPlayer = useMemo(() => state.allPlayers.find(p => p.id === state.currentPlayerId)!, [state.allPlayers, state.currentPlayerId]);
+    const currentPlayer = useMemo(() => state.allPlayers.find(p => p.id === state.currentPlayerId) || null, [state.allPlayers, state.currentPlayerId]);
 
     // --- MOCK CHAT ---
     useEffect(() => {
+        if (!currentPlayer) return;
         const chatInterval = setInterval(() => {
           const roomPlayers = state.allPlayers.slice(0, 8); // Simulate a room
           const bots = roomPlayers.filter(p => p.id !== state.currentPlayerId);
@@ -171,7 +197,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
           }
         }, 6000);
         return () => clearInterval(chatInterval);
-      }, [state.allPlayers, state.currentPlayerId]);
+      }, [state.allPlayers, state.currentPlayerId, currentPlayer]);
 
     // --- HANDLERS ---
     const updatePlayer = useCallback((playerId: string, updates: Partial<Player>) => {
@@ -248,11 +274,62 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         return firstUpgrade;
     }, [state.allPlayers, updatePlayer]);
 
+    const handleLogin = async (email: string, pass: string): Promise<boolean> => {
+        const player = state.allPlayers.find(p => p.email === email && p.password === pass);
+        if (player) {
+            dispatch({ type: 'SET_CURRENT_PLAYER', payload: player.id });
+            return true;
+        }
+        return false;
+    };
+
+    const handleSignup = async (name: string, email: string, pass: string): Promise<boolean> => {
+        if (state.allPlayers.some(p => p.email === email)) {
+            return false; // Email already exists
+        }
+        const newPlayer: Player = {
+            id: `p${state.allPlayers.length + 1}`,
+            name,
+            email,
+            password: pass,
+            isAdmin: false,
+            bio: 'New to DareDown!',
+            customization: { avatarId: 'avatar_1', colorId: 'color_1', equippedBadge: null },
+            unlocks: [],
+            stats: { wins: 0, daresCompleted: 0, daresFailed: 0 },
+            friends: [],
+            friendRequests: [],
+            gameHistory: [],
+            isOnline: true,
+            level: 1,
+            xp: 0,
+            xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
+            badgeUnlocks: {},
+            score: 0,
+            isHost: false,
+            powerUps: [],
+            teamId: null,
+            // FIX: Add Dare Pass properties for new players
+            darePassTier: 1,
+            darePassStars: 0,
+            hasPremiumPass: false,
+            darePassChallenges: getInitialChallenges(),
+        };
+        addPlayer(newPlayer);
+        dispatch({ type: 'SET_CURRENT_PLAYER', payload: newPlayer.id });
+        return true;
+    };
+    
+    const handleLogout = () => {
+        dispatch({ type: 'SET_CURRENT_PLAYER', payload: null });
+    };
+
     const handleUpdateBio = useCallback((playerId: string, bio: string) => {
         updatePlayer(playerId, { bio });
     }, [updatePlayer]);
     
     const handleSendFriendRequest = (targetId: string): boolean => {
+        if (!currentPlayer) return false;
         const newRequest: FriendRequest = {
             fromId: currentPlayer.id, fromName: currentPlayer.name,
             fromCustomization: currentPlayer.customization, status: 'pending'
@@ -266,6 +343,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleAcceptFriendRequest = (fromId: string): string | null => {
+        if (!currentPlayer) return null;
         const fromPlayer = state.allPlayers.find(p => p.id === fromId);
         if (!fromPlayer) return null;
 
@@ -278,12 +356,14 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleDeclineFriendRequest = (fromId: string) => {
+        if (!currentPlayer) return;
         updatePlayer(currentPlayer.id, {
             friendRequests: currentPlayer.friendRequests.filter(req => req.fromId !== fromId)
         });
     };
 
     const handleSendMessage = (text: string) => {
+        if (!currentPlayer) return;
         const newMessage: ChatMessage = {
           id: `msg_${Date.now()}`, playerId: currentPlayer.id, playerName: currentPlayer.name,
           playerCustomization: currentPlayer.customization, text, timestamp: Date.now(), reactions: {},
@@ -292,6 +372,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleReactToMessage = (messageId: string, emoji: string) => {
+        if (!currentPlayer) return;
         dispatch({ type: 'REACT_TO_MESSAGE', payload: { messageId, emoji, reactorId: currentPlayer.id } });
     };
 
@@ -304,6 +385,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleSendPrivateMessage = (toId: string, text: string) => {
+        if (!currentPlayer) return;
         const newMessage: PrivateChatMessage = {
             id: `priv_${Date.now()}`, fromId: currentPlayer.id, toId, text,
             timestamp: Date.now(), isRead: false
@@ -328,6 +410,9 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
         removePlayer,
         addXp,
         checkForBadgeUpgrades,
+        handleLogin,
+        handleSignup,
+        handleLogout,
         handleUpdateBio,
         handleSendFriendRequest,
         handleAcceptFriendRequest,

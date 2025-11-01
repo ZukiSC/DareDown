@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useRef } from 'react';
 import { GameState } from './types';
 import Lobby from './components/Lobby';
@@ -20,8 +21,9 @@ import DareSubmissionScreen from './components/DareSubmissionScreen';
 import DareVotingScreen from './components/DareVotingScreen';
 import DareProofScreen from './components/DareProofScreen';
 import GameEndScreen from './components/GameEndScreen';
-import TeamDareVoteScreen from './components/TeamDareVoteScreen';
 import ProfileScreen from './components/ProfileScreen';
+import JoinLobbyScreen from './components/JoinLobbyScreen';
+import LoginSignupScreen from './components/LoginSignupScreen';
 import { Toaster } from 'react-hot-toast';
 
 import { SocialStoreProvider, useSocialStore } from './stores/SocialStore';
@@ -37,8 +39,8 @@ const AppContent = () => {
     const {
         gameState, currentRound, currentChallenge, roundLoser, suddenDeathPlayers,
         currentDare, extraTime, isSwappingCategory, maxRounds, players, dareArchive,
-        dareMode, submittedDares, winningDareId, losingTeamId, teamVotes,
-        xpSummary, viewingProfileId
+        dareMode, submittedDares, winningDareId,
+        xpSummary, viewingProfileId, lobbyCode
     } = useGameStore();
 
     const {
@@ -56,15 +58,15 @@ const AppContent = () => {
         handleMiniGameEnd, handleSuddenDeathEnd, handleStartLiveDare, handleStreamEnd,
         handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, setMaxRounds,
         handleViewReplay, setDareMode, handleDareSubmit, handleDareVote, handlePlayAgain,
-        handleReturnToMenu, handleGoBack, handleJoinTeam, handleTeamMateVote,
-        handleViewProfile
+        handleReturnToMenu, handleGoBack,
+        handleViewProfile, handleGoToJoinLobby, handleJoinLobbyWithCode, handleQuickStart,
     } = useGameStore();
 
     const {
         handleSendFriendRequest, handleAcceptFriendRequest, handleDeclineFriendRequest,
         handleSendMessage, handleReactToMessage, handleSendPrivateMessage, handleOpenPrivateChat,
         handleClosePrivateChat,
-        handleUpdateBio
+        handleUpdateBio, handleLogin, handleSignup, handleLogout,
     } = useSocialStore();
 
     const {
@@ -107,8 +109,17 @@ const AppContent = () => {
         }
     };
 
+    const augmentedLogout = () => {
+        handleLogout();
+        handleReturnToMenu(); // Also reset game state to main menu
+    };
+
     // --- RENDER LOGIC ---
     const renderContent = () => {
+        if (!currentPlayer) {
+            return <LoginSignupScreen onLogin={handleLogin} onSignup={handleSignup} />;
+        }
+        
         if (isSwappingCategory) {
             return (
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in">
@@ -126,7 +137,15 @@ const AppContent = () => {
             {(() => {
                 switch (gameState) {
                 case GameState.MAIN_MENU:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onViewProfile={handleViewProfile} />;
+                    return <MainMenuScreen 
+                        onCreateLobby={handleCreateLobby} 
+                        onJoinLobby={handleGoToJoinLobby} 
+                        onViewProfile={handleViewProfile} 
+                        onQuickStart={handleQuickStart} 
+                        onLogout={augmentedLogout} 
+                    />;
+                case GameState.JOIN_LOBBY:
+                    return <JoinLobbyScreen onJoin={handleJoinLobbyWithCode} onGoBack={handleGoBack} />;
                 case GameState.PROFILE:
                     return viewingProfile ? (
                         <ProfileScreen
@@ -156,14 +175,12 @@ const AppContent = () => {
                         onMaxRoundsChange={setMaxRounds}
                         dareMode={dareMode}
                         onDareModeChange={setDareMode}
-                        onJoinTeam={handleJoinTeam}
+                        lobbyCode={lobbyCode}
                     />;
                 case GameState.MINIGAME:
                     return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} extraTime={extraTime} onViewProfile={handleViewProfile} />;
                 case GameState.SUDDEN_DEATH:
                     return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} onViewProfile={handleViewProfile}/>;
-                case GameState.TEAM_DARE_VOTE:
-                    return <TeamDareVoteScreen players={players} currentPlayer={currentPlayer} losingTeamId={losingTeamId} teamVotes={teamVotes} onVote={handleTeamMateVote} />
                 case GameState.DARE_SUBMISSION:
                     return <DareSubmissionScreen loser={roundLoser} currentPlayer={currentPlayer} players={players} onSubmit={handleDareSubmit} />;
                 case GameState.DARE_VOTING:
@@ -179,25 +196,22 @@ const AppContent = () => {
                 case GameState.GAME_END:
                     return <GameEndScreen players={players} onPlayAgain={handlePlayAgain} onReturnToMenu={handleReturnToMenu} xpSummary={xpSummary[currentPlayer.id] || []} />;
                 default:
-                    return <MainMenuScreen onCreateLobby={handleCreateLobby} onViewProfile={handleViewProfile}/>;
+                    return <MainMenuScreen 
+                        onCreateLobby={handleCreateLobby} 
+                        onJoinLobby={handleGoToJoinLobby} 
+                        onViewProfile={handleViewProfile} 
+                        onQuickStart={handleQuickStart} 
+                        onLogout={augmentedLogout} 
+                    />;
                 }
             })()}
             </div>
         );
     };
   
-    const showBottomBar = [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
-    const showChatButton = ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END, GameState.PROFILE].includes(gameState);
-
-    if (!currentPlayer) {
-        return (
-             <div className="flex flex-col items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
-              <p className="mt-4 text-xl text-gray-300">Initializing Player...</p>
-            </div>
-        )
-    }
-
+    const showBottomBar = currentPlayer && [GameState.MINIGAME, GameState.DARE_LIVE_STREAM, GameState.LOBBY, GameState.DARE_SCREEN, GameState.LEADERBOARD].includes(gameState);
+    const showChatButton = currentPlayer && ![GameState.MAIN_MENU, GameState.CATEGORY_SELECTION, GameState.CUSTOMIZATION, GameState.GAME_END, GameState.PROFILE, GameState.JOIN_LOBBY].includes(gameState);
+    
     const renderUnlockNotification = () => {
         if (!newUnlock) return null;
         let title = '';
@@ -268,24 +282,28 @@ const AppContent = () => {
                 },
             }}
         />
-        <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
-            {gameState !== GameState.MAIN_MENU && (
-                <>
-                    <button onClick={() => setIsFriendsPanelOpen(true)} className="px-3 py-1.5 text-xs font-semibold rounded-full bg-purple-500/70 hover:bg-purple-500/90 transition-colors transform active:scale-95">
-                        Social
-                    </button>
-                    <button onClick={() => setIsArchiveOpen(true)} className="px-3 py-1.5 text-xs font-semibold rounded-full bg-blue-500/70 hover:bg-blue-500/90 transition-colors transform active:scale-95">
-                        Archive
-                    </button>
-                </>
-            )}
-        </div>
-         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
-            <h1 className="text-xl font-bold text-white drop-shadow-lg">DareDown</h1>
-            <button onClick={handleToggleMute} className="text-xl p-2 rounded-full bg-purple-500/50 hover:bg-purple-500/80 transition-colors" aria-label={isMuted ? 'Unmute' : 'Mute'}>
-                {isMuted ? '🔇' : '🔊'}
-            </button>
-        </div>
+        {currentPlayer && (
+        <>
+            <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
+                {gameState !== GameState.MAIN_MENU && (
+                    <>
+                        <button onClick={() => setIsFriendsPanelOpen(true)} className="px-3 py-1.5 text-xs font-semibold rounded-full bg-purple-500/70 hover:bg-purple-500/90 transition-colors transform active:scale-95">
+                            Social
+                        </button>
+                        <button onClick={() => setIsArchiveOpen(true)} className="px-3 py-1.5 text-xs font-semibold rounded-full bg-blue-500/70 hover:bg-blue-500/90 transition-colors transform active:scale-95">
+                            Archive
+                        </button>
+                    </>
+                )}
+            </div>
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+                <h1 className="text-xl font-bold text-white drop-shadow-lg">DareDown</h1>
+                <button onClick={handleToggleMute} className="text-xl p-2 rounded-full bg-purple-500/50 hover:bg-purple-500/80 transition-colors" aria-label={isMuted ? 'Unmute' : 'Mute'}>
+                    {isMuted ? '🔇' : '🔊'}
+                </button>
+            </div>
+        </>
+        )}
         
         <main className="relative w-full flex-1 max-w-7xl flex flex-col items-center justify-start bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-4 md:p-8 border border-purple-500/30 mt-16 mb-4 overflow-y-auto">
         {loadingState.active ? (
@@ -325,7 +343,7 @@ const AppContent = () => {
             </>
         )}
 
-        {isFriendsPanelOpen && (
+        {currentPlayer && isFriendsPanelOpen && (
             <FriendsPanel
             isOpen={isFriendsPanelOpen}
             onClose={() => setIsFriendsPanelOpen(false)}
@@ -339,7 +357,7 @@ const AppContent = () => {
             />
         )}
         
-        {Object.entries(privateChats).map(([friendId, messages]) => {
+        {currentPlayer && Object.entries(privateChats).map(([friendId, messages]) => {
             const friend = allPlayers.find(p => p.id === friendId);
             if(!friend) return null;
             return <PrivateChatWindow key={friendId} friend={friend} messages={messages} onSendMessage={(text) => handleSendPrivateMessage(friendId, text)} onClose={() => handleClosePrivateChat(friendId)} />

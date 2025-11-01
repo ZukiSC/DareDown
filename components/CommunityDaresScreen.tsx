@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+// FIX: Import missing DarePack type.
 import { DarePack } from '../types';
 import CreateDarePackModal from './CreateDarePackModal';
 

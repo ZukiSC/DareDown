@@ -1,4 +1,5 @@
 import React from 'react';
+// FIX: Import missing PublicLobby type.
 import { PublicLobby } from '../types';
 import { getAvatarById, getColorById } from '../services/customizationService';
 

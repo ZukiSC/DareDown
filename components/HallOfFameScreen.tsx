@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+// FIX: Import missing HallOfFameEntry type.
 import { HallOfFameEntry } from '../types';
 import { getAvatarById, getColorById } from '../services/customizationService';
 

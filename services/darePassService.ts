@@ -1,3 +1,4 @@
+// FIX: Import missing DarePassReward and DarePassChallenge types.
 import { DarePassReward, DarePassChallenge } from '../types';
 
 export const STARS_PER_TIER = 10;

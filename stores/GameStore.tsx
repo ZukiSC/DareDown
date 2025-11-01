@@ -1,3 +1,4 @@
+
 // FIX: Corrected React import syntax.
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, PropsWithChildren } from 'react';
 // FIX: Added missing PlayerCustomization and PowerUpType to the import.
@@ -11,6 +12,17 @@ import { useSocialStore } from './SocialStore';
 import { useUIStore } from './UIStore';
 import { XP_REWARDS } from '../services/levelingService';
 
+// --- HELPERS ---
+const generateLobbyCode = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+
 // --- STATE ---
 interface GameStoreState {
   gameState: GameState;
@@ -21,8 +33,6 @@ interface GameStoreState {
   maxRounds: number;
   currentChallenge: Challenge | null;
   roundLoserId: string | null;
-  losingTeamId: 'blue' | 'orange' | null;
-  teamVotes: { [voterId: string]: string }; // voterId -> votedForId
   suddenDeathPlayerIds: string[];
   currentDare: Dare | null;
   extraTime: number;
@@ -36,6 +46,7 @@ interface GameStoreState {
     scores: { playerId: string; score: number }[];
     challengeType: MiniGameType;
   } | null;
+  lobbyCode: string | null;
 }
 
 const initialState: GameStoreState = {
@@ -47,8 +58,6 @@ const initialState: GameStoreState = {
   maxRounds: 5,
   currentChallenge: null,
   roundLoserId: null,
-  losingTeamId: null,
-  teamVotes: {},
   suddenDeathPlayerIds: [],
   currentDare: null,
   extraTime: 0,
@@ -59,19 +68,20 @@ const initialState: GameStoreState = {
   winningDareId: null,
   xpSummary: {},
   lastRoundScores: null,
+  lobbyCode: null,
 };
 
 // --- ACTIONS ---
 type Action =
   | { type: 'SET_GAME_STATE'; payload: GameState }
   | { type: 'VIEW_PROFILE'; payload: string }
-  | { type: 'CREATE_LOBBY'; payload: { hostId: string } }
+  | { type: 'CREATE_LOBBY'; payload: { hostId: string, lobbyCode: string } }
+  | { type: 'JOIN_LOBBY_SUCCESS'; payload: string }
   | { type: 'SET_PLAYERS_IN_ROOM'; payload: string[] }
   | { type: 'START_GAME'; payload: { challenge: Challenge } }
   | { type: 'SET_MAX_ROUNDS'; payload: number }
-  // FIX: Updated END_MINIGAME to carry losingTeamId in payload.
-  | { type: 'END_MINIGAME'; payload: { playerScores: Map<string, number>, challengeType: MiniGameType, losingTeamId: 'blue' | 'orange' | null, scores: { playerId: string; score: number }[] } }
   | { type: 'SET_SUDDEN_DEATH'; payload: { playerIds: string[] } }
+  | { type: 'SET_ROUND_LOSER'; payload: string }
   | { type: 'SET_DARE'; payload: { dare: Dare; loserId: string } }
   | { type: 'START_LIVE_DARE' }
   | { type: 'COMPLETE_DARE'; payload: { dare: Dare, passed: boolean } }
@@ -91,9 +101,6 @@ type Action =
   | { type: 'PLAY_AGAIN' }
   | { type: 'RETURN_TO_MENU' }
   | { type: 'GO_BACK' }
-  | { type: 'VOTE_FOR_TEAMMATE'; payload: { voterId: string, targetId: string } }
-  // FIX: Updated FINALIZE_TEAM_VOTE to carry losingTeamPlayers in payload.
-  | { type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: Player[] } }
   | { type: 'ADD_XP_SUMMARY'; payload: { playerId: string, reason: string, amount: number } }
   | { type: 'CLEAR_XP_SUMMARY' }
   | { type: 'PASS_DARE'; payload: { newLoserId: string, newDare: Dare } };
@@ -112,61 +119,21 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
           viewingProfileId: action.payload 
       };
     case 'CREATE_LOBBY':
-      return { ...initialState, playersInRoom: [action.payload.hostId], gameState: GameState.CATEGORY_SELECTION };
+      return { ...initialState, lobbyCode: action.payload.lobbyCode, playersInRoom: [action.payload.hostId], gameState: GameState.CATEGORY_SELECTION };
+    case 'JOIN_LOBBY_SUCCESS':
+      return { ...state, playersInRoom: [...state.playersInRoom, action.payload], gameState: GameState.LOBBY };
     case 'SET_PLAYERS_IN_ROOM':
         return { ...state, playersInRoom: action.payload };
     case 'START_GAME':
       return { ...state, gameState: GameState.MINIGAME, currentRound: 1, currentChallenge: action.payload.challenge, xpSummary: {} };
     case 'SET_MAX_ROUNDS':
       return { ...state, maxRounds: action.payload };
-    // FIX: Updated reducer to set losingTeamId from the action payload.
-    case 'END_MINIGAME': {
-      // Team logic is handled in the action creator, this just transitions state
-      return { 
-        ...state, 
-        gameState: GameState.TEAM_DARE_VOTE, 
-        submittedDares: [], 
-        losingTeamId: action.payload.losingTeamId,
-        lastRoundScores: {
-          scores: action.payload.scores,
-          challengeType: action.payload.challengeType,
-        }
-      };
-    }
-    case 'VOTE_FOR_TEAMMATE': {
-        return {
-            ...state,
-            teamVotes: {
-                ...state.teamVotes,
-                [action.payload.voterId]: action.payload.targetId,
-            }
-        };
-    }
-    // FIX: Refactored reducer to use losingTeamPlayers from payload, removing dependency on external state.
-    case 'FINALIZE_TEAM_VOTE': {
-        const { losingTeamPlayers } = action.payload;
-        const votes = Object.values(state.teamVotes);
-        if (votes.length === 0) { // Should not happen with real players
-             const randomLoser = losingTeamPlayers[Math.floor(Math.random() * losingTeamPlayers.length)];
-             return { ...state, roundLoserId: randomLoser?.id || null, teamVotes: {} };
-        }
-        const voteCounts = votes.reduce((acc, id) => {
-            acc[id] = (acc[id] || 0) + 1;
-            return acc;
-        }, {} as { [key: string]: number });
-        
-        const maxVotes = Math.max(...Object.values(voteCounts));
-        const losers = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
-        
-        // If there's a tie, pick one randomly
-        const finalLoserId = losers[Math.floor(Math.random() * losers.length)];
-
-        return { ...state, roundLoserId: finalLoserId, teamVotes: {} };
-    }
-    case 'SET_SUDDEN_DEATH': // Note: Sudden death is individual, overrides teams for a round.
+    case 'SET_SUDDEN_DEATH':
       return { ...state, gameState: GameState.SUDDEN_DEATH, suddenDeathPlayerIds: action.payload.playerIds };
+    case 'SET_ROUND_LOSER':
+        return { ...state, roundLoserId: action.payload };
     case 'SET_DARE':
-      return { ...state, gameState: GameState.DARE_SCREEN, currentDare: action.payload.dare, roundLoserId: action.payload.loserId, losingTeamId: null };
+      return { ...state, gameState: GameState.DARE_SCREEN, currentDare: action.payload.dare, roundLoserId: action.payload.loserId };
     case 'PASS_DARE':
       return {
         ...state,
@@ -188,7 +155,6 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             gameState: GameState.MINIGAME,
             currentChallenge: action.payload.challenge,
             roundLoserId: null,
-            losingTeamId: null,
             currentDare: null,
             suddenDeathPlayerIds: [],
             extraTime: 0
@@ -200,7 +166,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
     case 'SET_SWAPPING_CATEGORY':
         return { ...state, isSwappingCategory: action.payload };
     case 'RESET_LOBBY':
-        return { ...initialState, playersInRoom: [state.playersInRoom[0]] }; // Keep current player
+        return { ...initialState, lobbyCode: null, playersInRoom: [state.playersInRoom[0]] }; // Keep current player
     case 'SET_DARE_MODE':
       return { ...state, dareMode: action.payload };
     case 'SUBMIT_DARE':
@@ -244,10 +210,9 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
             currentDare: null,
             extraTime: 0,
             winningDareId: null,
-            losingTeamId: null,
-            teamVotes: {},
             xpSummary: {},
             lastRoundScores: null,
+            lobbyCode: generateLobbyCode(),
         };
     case 'RETURN_TO_MENU':
         return initialState;
@@ -260,6 +225,7 @@ const gameReducer = (state: GameStoreState, action: Action): GameStoreState => {
                     viewingProfileId: null,
                     previousGameState: null
                 };
+            case GameState.JOIN_LOBBY:
             case GameState.CATEGORY_SELECTION:
                 return { ...state, gameState: GameState.MAIN_MENU };
             case GameState.CUSTOMIZATION:
@@ -291,9 +257,12 @@ interface GameStoreContextType extends GameStoreState {
   roundLoser: Player | null;
   suddenDeathPlayers: Player[];
   handleCreateLobby: () => void;
+  handleGoToJoinLobby: () => void;
+  handleJoinLobbyWithCode: (code: string) => void;
   handleCategorySelect: (category: Category) => void;
   handleCustomizationSave: (customization: PlayerCustomization) => void;
   handleStartGame: () => void;
+  handleQuickStart: () => void;
   handleMiniGameEnd: (scores: Map<string, number>, challengeType: MiniGameType) => void;
   handleSuddenDeathEnd: (loserId: string) => void;
   handleStartLiveDare: () => void;
@@ -311,8 +280,6 @@ interface GameStoreContextType extends GameStoreState {
   setDareMode: (mode: DareMode) => void;
   handleDareSubmit: (dareText: string) => void;
   handleDareVote: (dareId: string) => void;
-  handleJoinTeam: (teamId: 'blue' | 'orange' | null) => void;
-  handleTeamMateVote: (targetId: string) => void;
 }
 
 const GameStoreContext = createContext<GameStoreContextType | undefined>(undefined);
@@ -331,7 +298,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     useEffect(() => {
         const playerJoinInterval = setInterval(() => {
           if (state.gameState === GameState.LOBBY && players.length < 8) {
-            const nonRoomPlayers = allPlayers.filter(ap => !players.some(p => p.id === ap.id) && ap.id !== currentPlayer.id);
+            const nonRoomPlayers = allPlayers.filter(ap => !players.some(p => p.id === ap.id) && ap.id !== currentPlayer?.id);
             if(nonRoomPlayers.length === 0) return;
             const newPlayer = nonRoomPlayers[Math.floor(Math.random() * nonRoomPlayers.length)];
             dispatch({ type: 'SET_PLAYERS_IN_ROOM', payload: [...state.playersInRoom, newPlayer.id] });
@@ -446,59 +413,43 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
             addXp(p.id, XP_REWARDS.GAME_PLAYED);
             dispatch({ type: 'ADD_XP_SUMMARY', payload: { playerId: p.id, reason: 'Played a round', amount: XP_REWARDS.GAME_PLAYED } });
         });
-
-        const teamScores = { blue: { totalScore: 0, playerCount: 0 }, orange: { totalScore: 0, playerCount: 0 } };
-        
-        for (const player of players) {
-            if (player.teamId) {
-                const score = playerScores.get(player.id) || 0;
-                teamScores[player.teamId].totalScore += score;
-                teamScores[player.teamId].playerCount++;
-            }
-        }
-
-        const blueAvg = teamScores.blue.playerCount > 0 ? teamScores.blue.totalScore / teamScores.blue.playerCount : 0;
-        const orangeAvg = teamScores.orange.playerCount > 0 ? teamScores.orange.totalScore / teamScores.orange.playerCount : 0;
-        
-        // Higher is better for all except MEMORY_MATCH
-        const higherIsBetter = !['MEMORY_MATCH'].includes(challengeType);
-        
-        let losingTeamId: 'blue' | 'orange' | null = null;
-        if (teamScores.blue.playerCount > 0 && teamScores.orange.playerCount > 0) {
-            if (higherIsBetter) {
-                losingTeamId = blueAvg < orangeAvg ? 'blue' : 'orange';
-            } else { // Lower is better for MEMORY_MATCH
-                losingTeamId = blueAvg > orangeAvg ? 'blue' : 'orange';
-            }
-             if (blueAvg === orangeAvg) { // On tie, pick randomly
-                losingTeamId = Math.random() < 0.5 ? 'blue' : 'orange';
-            }
-        } else if (teamScores.blue.playerCount > 0) {
-            losingTeamId = 'blue';
-        } else if (teamScores.orange.playerCount > 0) {
-            losingTeamId = 'orange';
-        }
-
+    
         const scoresArray = Array.from(playerScores.entries()).map(([playerId, score]) => ({ playerId, score }));
-        if (losingTeamId) {
-            dispatch({ type: 'END_MINIGAME', payload: { playerScores, challengeType, losingTeamId, scores: scoresArray } });
-        } else {
+        if (scoresArray.length === 0) {
             handleNextRound();
+            return;
         }
-    }, [players, handleNextRound, addXp]);
+    
+        // Determine sorting order: for memory match, lower is better. For others, higher is better.
+        const higherIsBetter = !['MEMORY_MATCH'].includes(challengeType);
+        if (higherIsBetter) {
+            scoresArray.sort((a, b) => a.score - b.score); // Ascending, worst is first
+        } else {
+            scoresArray.sort((a, b) => b.score - a.score); // Descending, worst is first
+        }
+    
+        const worstScore = scoresArray[0].score;
+        const potentialLosers = scoresArray.filter(s => s.score === worstScore);
+    
+        if (potentialLosers.length === 1) {
+            const loserId = potentialLosers[0].playerId;
+            // The useEffect hook on `roundLoser` will handle the state transition based on dare mode.
+            dispatch({ type: 'SET_ROUND_LOSER', payload: loserId });
+        } else if (potentialLosers.length > 1 && potentialLosers.length < players.length) {
+            // Tie for last place, but not everyone tied.
+            dispatch({ type: 'SET_SUDDEN_DEATH', payload: { playerIds: potentialLosers.map(l => l.playerId) } });
+        } else {
+            // Everyone tied, or some other edge case. Just go to the next round.
+            showNotification("It's a draw! No loser this round.", '🤝');
+            setTimeout(() => handleNextRound(), 3000);
+        }
+    }, [players, handleNextRound, addXp, showNotification]);
 
     const handleSuddenDeathEnd = (loserId: string) => {
         const loserPlayer = players.find(p => p.id === loserId);
         if(loserPlayer) {
-            // Sudden death loser is determined, go straight to dare. The dare will be generated by the effect hook.
-            // We set a dummy dare here just to set the roundLoserId and transition state correctly.
-            const dummyDare: Dare = {
-                id: `dummy_${Date.now()}`,
-                text: 'Preparing dare...',
-                assigneeId: loserId,
-                status: 'pending'
-            };
-            dispatch({ type: 'SET_DARE', payload: { dare: dummyDare, loserId: loserId } });
+            // Sudden death loser is determined. The useEffect hook will now handle the state transition.
+            dispatch({ type: 'SET_ROUND_LOSER', payload: loserId });
         }
     };
 
@@ -658,30 +609,26 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         }, 300 * otherPlayers.length + 1000);
     };
 
-    const handleTeamMateVote = (targetId: string) => {
-        dispatch({ type: 'VOTE_FOR_TEAMMATE', payload: { voterId: currentPlayer.id, targetId } });
-        // Simulate other losing team members voting
-        const losingTeam = players.filter(p => p.teamId === state.losingTeamId);
-        const otherVoters = losingTeam.filter(p => p.id !== currentPlayer.id);
-        const candidates = losingTeam.map(p => p.id);
-
-        otherVoters.forEach((voter, i) => {
-            setTimeout(() => {
-                const vote = candidates[Math.floor(Math.random() * candidates.length)];
-                dispatch({ type: 'VOTE_FOR_TEAMMATE', payload: { voterId: voter.id, targetId: vote } });
-            }, (i + 1) * 400);
-        });
-
-        // FIX: Dispatch with payload containing losing team players.
-        setTimeout(() => {
-            dispatch({ type: 'FINALIZE_TEAM_VOTE', payload: { losingTeamPlayers: losingTeam } });
-        }, (otherVoters.length + 1) * 500);
-    };
-
     const handleCreateLobby = () => {
         updatePlayer(currentPlayer.id, { isHost: true, score: 0, teamId: null });
-        dispatch({ type: 'CREATE_LOBBY', payload: { hostId: currentPlayer.id } });
+        const newLobbyCode = generateLobbyCode();
+        dispatch({ type: 'CREATE_LOBBY', payload: { hostId: currentPlayer.id, lobbyCode: newLobbyCode } });
         playSound('tap');
+    };
+
+    const handleGoToJoinLobby = () => {
+        dispatch({ type: 'SET_GAME_STATE', payload: GameState.JOIN_LOBBY });
+    };
+
+    const handleJoinLobbyWithCode = (code: string) => {
+        // This is a mock. In a real app, this would be an API call.
+        if (state.lobbyCode && code.toUpperCase() === state.lobbyCode) {
+            updatePlayer(currentPlayer.id, { isHost: false, score: 0, teamId: null });
+            dispatch({ type: 'JOIN_LOBBY_SUCCESS', payload: currentPlayer.id });
+            showNotification(`Joined lobby!`, '🎉');
+        } else {
+            showNotification(`Invalid lobby code!`, '❌');
+        }
     };
 
     const handleCategorySelect = (category: Category) => {
@@ -700,14 +647,36 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         dispatch({ type: 'SET_GAME_STATE', payload: GameState.LOBBY });
     };
     
-    const handleJoinTeam = (teamId: 'blue' | 'orange' | null) => {
-        updatePlayer(currentPlayer.id, { teamId });
-    };
-
     const handleStartGame = useCallback(() => {
         playSound('gameStart');
         dispatch({ type: 'START_GAME', payload: { challenge: generateNextChallenge() } });
     }, [generateNextChallenge]);
+
+    const handleQuickStart = () => {
+        if (!currentPlayer?.isAdmin) return;
+
+        const botPlayers = allPlayers.filter(p => p.id !== currentPlayer.id).slice(0, 3);
+        const roomPlayerIds = [currentPlayer.id, ...botPlayers.map(b => b.id)];
+        
+        dispatch({ type: 'SET_PLAYERS_IN_ROOM', payload: roomPlayerIds });
+
+        // Force assign teams and other properties
+        updatePlayer(currentPlayer.id, { teamId: null, score: 0, powerUps: [], category: 'General', isHost: true });
+        botPlayers.forEach((bot) => {
+            updatePlayer(bot.id, { teamId: null, score: 0, powerUps: [], category: 'General', isHost: false });
+        });
+
+        // Use a short timeout to ensure the player state updates before generating challenge
+        setTimeout(() => {
+            const tempPlayers = [currentPlayer, ...botPlayers].map(p => ({
+                ...p,
+                category: 'General', // ensure they have a category for challenge generation
+            }));
+            const challenge = getChallengeForRoom(tempPlayers.map(p => p.category as Category));
+            playSound('gameStart');
+            dispatch({ type: 'START_GAME', payload: { challenge } });
+        }, 100);
+    };
 
     const handleKickPlayer = (playerId: string) => {
         const kickedPlayer = players.find(p => p.id === playerId);
@@ -743,7 +712,9 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleReturnToMenu = () => {
-        updatePlayer(currentPlayer.id, { isHost: false, score: 0, powerUps: [], category: undefined, teamId: null });
+        if(currentPlayer) {
+            updatePlayer(currentPlayer.id, { isHost: false, score: 0, powerUps: [], category: undefined, teamId: null });
+        }
         dispatch({ type: 'RETURN_TO_MENU' });
     };
 
@@ -757,9 +728,12 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         roundLoser,
         suddenDeathPlayers,
         handleCreateLobby,
+        handleGoToJoinLobby,
+        handleJoinLobbyWithCode,
         handleCategorySelect,
         handleCustomizationSave,
         handleStartGame,
+        handleQuickStart,
         handleMiniGameEnd,
         handleSuddenDeathEnd,
         handleStartLiveDare: () => dispatch({ type: 'START_LIVE_DARE' }),
@@ -777,9 +751,7 @@ export const GameStoreProvider = ({ children }: PropsWithChildren) => {
         setDareMode: (mode: DareMode) => dispatch({ type: 'SET_DARE_MODE', payload: mode }),
         handleDareSubmit,
         handleDareVote,
-        handleJoinTeam,
-        handleTeamMateVote,
-    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, handleTeamMateVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleViewProfile]);
+    }), [state, players, roundLoser, suddenDeathPlayers, handleStartGame, handleMiniGameEnd, handleStreamEnd, handleProofVote, handleUsePowerUp, handleKickPlayer, handleLeaveLobby, handleViewReplay, handleCategorySelect, handleCustomizationSave, handleSuddenDeathEnd, handleDareSubmit, handleDareVote, allPlayers, handlePlayAgain, handleReturnToMenu, handleGoBack, handleViewProfile, handleCreateLobby, handleGoToJoinLobby, handleJoinLobbyWithCode, handleQuickStart]);
 
     return (
         <GameStoreContext.Provider value={value}>
