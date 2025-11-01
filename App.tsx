@@ -32,6 +32,7 @@ import { GameStoreProvider, useGameStore } from './stores/GameStore';
 import LevelUpModal from './components/LevelUpModal';
 import { getRewardForLevel } from './services/levelingService';
 import { Avatar, Badge, ColorTheme } from './types';
+import VoiceMuteButton from './components/VoiceMuteButton';
 
 
 const AppContent = () => {
@@ -49,7 +50,8 @@ const AppContent = () => {
 
     const {
         loadingState, isMuted, isChatOpen, isFriendsPanelOpen, 
-        isArchiveOpen, viewingReplay, greetings, newUnlock, levelUpModalData
+        isArchiveOpen, viewingReplay, greetings, newUnlock, levelUpModalData,
+        isVoiceConnected, isVoiceMuted, speakingPlayerId
     } = useUIStore();
 
     // --- HANDLERS FROM STORES ---
@@ -72,7 +74,8 @@ const AppContent = () => {
     const {
         handleToggleMute, handleEmojiReaction, setIsChatOpen, setIsFriendsPanelOpen,
         setIsArchiveOpen, setViewingReplay, handleSendGreeting,
-        showNotification, showLevelUpNotification, hideLevelUpNotification
+        showNotification, showLevelUpNotification, hideLevelUpNotification,
+        connectVoiceChat, disconnectVoiceChat, handleToggleVoiceMute
     } = useUIStore();
     
     // --- DERIVED STATE ---
@@ -93,6 +96,32 @@ const AppContent = () => {
         prevLevelRef.current = currentPlayer.level;
       }
     }, [currentPlayer?.level, showLevelUpNotification, currentPlayer]);
+
+    // --- VOICE CHAT EFFECT ---
+    const isVoiceChatActive = useMemo(() => {
+        return currentPlayer && [
+            GameState.LOBBY,
+            GameState.MINIGAME,
+            GameState.SUDDEN_DEATH,
+            GameState.DARE_SUBMISSION,
+            GameState.DARE_VOTING,
+            GameState.DARE_SCREEN,
+            GameState.DARE_PROOF,
+            GameState.LEADERBOARD
+        ].includes(gameState);
+    }, [gameState, currentPlayer]);
+    
+    useEffect(() => {
+        if (isVoiceChatActive) {
+            connectVoiceChat();
+        } else {
+            disconnectVoiceChat();
+        }
+        // Ensure cleanup on component unmount
+        return () => {
+            disconnectVoiceChat();
+        };
+    }, [isVoiceChatActive, connectVoiceChat, disconnectVoiceChat]);
     
     // --- AUGMENTED HANDLERS to connect stores ---
     const augmentedSendFriendRequest = (targetId: string) => {
@@ -176,11 +205,12 @@ const AppContent = () => {
                         dareMode={dareMode}
                         onDareModeChange={setDareMode}
                         lobbyCode={lobbyCode}
+                        speakingPlayerId={speakingPlayerId}
                     />;
                 case GameState.MINIGAME:
-                    return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} extraTime={extraTime} onViewProfile={handleViewProfile} />;
+                    return <GameScreen challenge={currentChallenge} players={players} currentPlayerId={currentPlayer.id} onMiniGameEnd={handleMiniGameEnd} round={currentRound} extraTime={extraTime} onViewProfile={handleViewProfile} speakingPlayerId={speakingPlayerId} />;
                 case GameState.SUDDEN_DEATH:
-                    return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} onViewProfile={handleViewProfile}/>;
+                    return <SuddenDeathScreen players={suddenDeathPlayers} onEnd={handleSuddenDeathEnd} onViewProfile={handleViewProfile} speakingPlayerId={speakingPlayerId} />;
                 case GameState.DARE_SUBMISSION:
                     return <DareSubmissionScreen loser={roundLoser} currentPlayer={currentPlayer} players={players} onSubmit={handleDareSubmit} />;
                 case GameState.DARE_VOTING:
@@ -316,6 +346,10 @@ const AppContent = () => {
         )}
         </main>
         
+        {isVoiceChatActive && (
+            <VoiceMuteButton isMuted={isVoiceMuted} onToggleMute={handleToggleVoiceMute} isConnected={isVoiceConnected} />
+        )}
+
         {showBottomBar && (
             <div className="sticky bottom-4 w-full max-w-sm flex justify-center items-center z-30 mt-2">
                 <PowerUpPanel player={currentPlayer} onUsePowerUp={handleUsePowerUp} gameState={gameState} isLoser={currentPlayer.id === roundLoser?.id} />

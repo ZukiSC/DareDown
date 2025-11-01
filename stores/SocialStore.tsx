@@ -26,6 +26,7 @@ const MOCK_ALL_PLAYERS_DATA: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'cat
     xp: 0,
     xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,
     badgeUnlocks: {},
+    isMuted: true,
     // FIX: Add Dare Pass properties to mock data
     darePassTier: 1,
     darePassStars: 0,
@@ -43,6 +44,7 @@ const initialPlayer: Omit<Player, 'score' | 'isHost' | 'powerUps' | 'category' |
     stats: { wins: 5, daresCompleted: 12, daresFailed: 3 },
     badgeUnlocks: { 'badge_dare_survivor': 2, 'badge_winner': 2 }, // Unlocked silver for both
     customization: { avatarId: 'avatar_1', colorId: 'color_1', equippedBadge: { id: 'badge_dare_survivor', tier: 2 } },
+    isMuted: true,
     // FIX: Add Dare Pass properties to initial player
     hasPremiumPass: true,
     darePassTier: 3,
@@ -301,6 +303,7 @@ export const SocialStoreProvider = ({ children }: PropsWithChildren) => {
             friendRequests: [],
             gameHistory: [],
             isOnline: true,
+            isMuted: true,
             level: 1,
             xp: 0,
             xpToNextLevel: calculateLevelInfo(0).xpToNextLevel,

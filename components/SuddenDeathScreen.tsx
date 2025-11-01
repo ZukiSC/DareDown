@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Player } from '../types';
 import PlayerAvatar from './PlayerAvatar';
@@ -7,9 +8,10 @@ interface SuddenDeathScreenProps {
   players: Player[];
   onEnd: (loserId: string) => void;
   onViewProfile: (playerId: string) => void;
+  speakingPlayerId: string | null;
 }
 
-const SuddenDeathScreen: React.FC<SuddenDeathScreenProps> = ({ players, onEnd, onViewProfile }) => {
+const SuddenDeathScreen: React.FC<SuddenDeathScreenProps> = ({ players, onEnd, onViewProfile, speakingPlayerId }) => {
     const [countdown, setCountdown] = useState(5);
 
     useEffect(() => {
@@ -31,7 +33,14 @@ const SuddenDeathScreen: React.FC<SuddenDeathScreenProps> = ({ players, onEnd, o
             
             <div className="flex justify-center gap-4 my-8">
                 {players.map(p => (
-                    <PlayerAvatar key={p.id} player={p} isCurrentPlayer={true} onClick={onViewProfile} />
+                    <PlayerAvatar 
+                        key={p.id} 
+                        player={p} 
+                        isCurrentPlayer={true} 
+                        onClick={onViewProfile}
+                        isMuted={p.isMuted}
+                        isSpeaking={speakingPlayerId === p.id}
+                    />
                 ))}
             </div>
 

@@ -17,12 +17,13 @@ interface LobbyProps {
   dareMode: DareMode;
   onDareModeChange: (mode: DareMode) => void;
   lobbyCode: string | null;
+  speakingPlayerId: string | null;
 }
 
 const Lobby: React.FC<LobbyProps> = ({ 
   players, currentPlayer, onStartGame, onViewProfile, showNotification, onKickPlayer, 
   onLeaveLobby, maxRounds, onMaxRoundsChange, dareMode, onDareModeChange,
-  lobbyCode
+  lobbyCode, speakingPlayerId
 }) => {
   const [kickConfirmPlayer, setKickConfirmPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -76,6 +77,8 @@ const Lobby: React.FC<LobbyProps> = ({
                     reaction={reaction} 
                     isCurrentPlayer={player.id === currentPlayer.id} 
                     onClick={() => handleAvatarClick(player)}
+                    isMuted={player.isMuted}
+                    isSpeaking={speakingPlayerId === player.id}
                 />;
       })}
     </div>

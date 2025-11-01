@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Challenge, Player, QuizQuestion, MiniGameType } from '../types';
 import QuickQuizGame from './games/QuickQuizGame';
@@ -168,6 +169,7 @@ interface GameScreenProps {
   round: number;
   extraTime: number;
   onViewProfile: (playerId: string) => void;
+  speakingPlayerId: string | null;
 }
 
 const gameComponents = {
@@ -194,7 +196,7 @@ const gameTitles = {
     EMOJI_PUZZLE: 'Emoji Puzzle!',
 }
 
-const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlayerId, onMiniGameEnd, round, extraTime, onViewProfile }) => {
+const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlayerId, onMiniGameEnd, round, extraTime, onViewProfile, speakingPlayerId }) => {
   const [isBriefing, setIsBriefing] = useState(true);
   const [countdown, setCountdown] = useState(3);
   const { activeReactions } = useUIStore();
@@ -277,7 +279,15 @@ const GameScreen: React.FC<GameScreenProps> = ({ challenge, players, currentPlay
       <div className="flex justify-center gap-2 mt-2">
         {players.map(p => {
             const reaction = activeReactions.find(r => r.playerId === p.id)?.emoji;
-            return <PlayerAvatar key={p.id} player={p} isCurrentPlayer={p.id === currentPlayerId} reaction={reaction} onClick={onViewProfile} />
+            return <PlayerAvatar 
+                      key={p.id} 
+                      player={p} 
+                      isCurrentPlayer={p.id === currentPlayerId} 
+                      reaction={reaction} 
+                      onClick={onViewProfile}
+                      isMuted={p.isMuted}
+                      isSpeaking={speakingPlayerId === p.id}
+                    />
         })}
       </div>
     </div>

@@ -55,6 +55,7 @@ export interface Player {
   isOnline?: boolean;
   bio?: string;
   badgeUnlocks: { [badgeId: string]: number }; // badgeId -> highest tier unlocked
+  isMuted: boolean;
   // Progression
   level: number;
   xp: number;

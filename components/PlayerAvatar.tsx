@@ -13,9 +13,11 @@ interface PlayerAvatarProps {
   style?: React.CSSProperties;
   isDraggable?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
+  isMuted?: boolean;
+  isSpeaking?: boolean;
 }
 
-const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner, onClick, className, style, isDraggable, onDragStart }) => {
+const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, reaction, isWinner, onClick, className, style, isDraggable, onDragStart, isMuted, isSpeaking }) => {
   const avatar = useMemo(() => getAvatarById(player.customization.avatarId), [player.customization.avatarId]);
   const color = useMemo(() => getColorById(player.customization.colorId), [player.customization.colorId]);
   const badgeInfo = useMemo(() => {
@@ -42,6 +44,7 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
     ${isCurrentPlayer ? 'bg-purple-600/70' : 'bg-gray-700/50'}
     ${isWinner ? 'shadow-lg shadow-yellow-400/50 animate-glow' : ''}
     ${player.isHost && !isWinner ? 'animate-glow-host' : ''}
+    ${isSpeaking && !isMuted ? 'animate-glow-speaking' : ''}
     ${onClick && !isDraggable ? 'cursor-pointer hover:bg-purple-600/50' : ''}
     ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
     ${className || ''}`;
@@ -65,6 +68,14 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ player, isCurrentPlayer, re
       <div className={`relative w-14 h-14 rounded-full ${color.primaryClass} mb-1 flex items-center justify-center text-3xl font-bold border-4 ${isCurrentPlayer ? color.secondaryClass : 'border-transparent'}`}>
         <span>{avatar.emoji}</span>
 
+        {isMuted && (
+            <div className="absolute -top-1 -left-1 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center border-2 border-gray-800" title="Muted">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 5l14 14" />
+                </svg>
+            </div>
+        )}
         {/* Level Badge */}
         <span
           className="absolute -bottom-1 right-0 w-6 h-6 rounded-full bg-gray-800 border-2 border-purple-400 flex items-center justify-center text-xs font-bold"

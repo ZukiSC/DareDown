@@ -112,6 +112,13 @@
       .animate-glow-host {
         animation: glow-host 2.5s ease-in-out infinite;
       }
+      @keyframes glow-speaking {
+        0%, 100% { box-shadow: 0 0 4px 2px rgba(74, 222, 128, 0.5); } /* green-400 */
+        50% { box-shadow: 0 0 12px 5px rgba(74, 222, 128, 0.2); }
+      }
+      .animate-glow-speaking {
+        animation: glow-speaking 1.5s ease-in-out infinite;
+      }
       @keyframes glow-legendary {
         0%, 100% { filter: drop-shadow(0 0 2px #fef08a) drop-shadow(0 0 5px #facc15) drop-shadow(0 0 10px #eab308); }
         50% { filter: drop-shadow(0 0 5px #fef08a) drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #eab308); }

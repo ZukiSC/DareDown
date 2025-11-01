@@ -4,6 +4,7 @@ import { preloadSounds, toggleMute } from '../services/audioService';
 import { requestNotificationPermission } from '../services/notificationService';
 import { useSocialStore } from './SocialStore';
 import { toast } from 'react-hot-toast';
+import { voiceService } from '../services/voiceService';
 
 type ActiveReaction = { id: string; playerId: string; emoji: string };
 type LoadingState = { active: boolean; message: string };
@@ -12,7 +13,7 @@ type LevelUpModalData = { level: number, reward: Avatar | ColorTheme | Badge };
 // --- STATE ---
 interface UIStoreState {
   loadingState: LoadingState;
-  isMuted: boolean;
+  isMuted: boolean; // sound effects mute
   activeReactions: ActiveReaction[];
   newUnlock: UnlockNotificationData | null;
   notificationPermission: NotificationPermission;
@@ -22,6 +23,10 @@ interface UIStoreState {
   viewingReplay: Dare | null;
   greetings: FloatingGreeting[];
   levelUpModalData: LevelUpModalData | null;
+  // Voice Chat State
+  isVoiceConnected: boolean;
+  isVoiceMuted: boolean; // microphone mute
+  speakingPlayerId: string | null;
 }
 
 const initialState: UIStoreState = {
@@ -36,6 +41,10 @@ const initialState: UIStoreState = {
   viewingReplay: null,
   greetings: [],
   levelUpModalData: null,
+  // Voice Chat State
+  isVoiceConnected: false,
+  isVoiceMuted: true,
+  speakingPlayerId: null,
 };
 
 // --- ACTIONS ---
@@ -54,7 +63,10 @@ type Action =
   | { type: 'ADD_GREETING'; payload: FloatingGreeting }
   | { type: 'REMOVE_GREETING'; payload: string }
   | { type: 'SHOW_LEVEL_UP_MODAL'; payload: LevelUpModalData }
-  | { type: 'HIDE_LEVEL_UP_MODAL' };
+  | { type: 'HIDE_LEVEL_UP_MODAL' }
+  | { type: 'SET_VOICE_CONNECTED'; payload: boolean }
+  | { type: 'SET_VOICE_MUTED'; payload: boolean }
+  | { type: 'SET_SPEAKING_PLAYER'; payload: string | null };
 
 // --- REDUCER ---
 const uiReducer = (state: UIStoreState, action: Action): UIStoreState => {
@@ -89,6 +101,14 @@ const uiReducer = (state: UIStoreState, action: Action): UIStoreState => {
       return { ...state, levelUpModalData: action.payload };
     case 'HIDE_LEVEL_UP_MODAL':
       return { ...state, levelUpModalData: null };
+    case 'SET_VOICE_CONNECTED':
+      return { ...state, isVoiceConnected: action.payload };
+    case 'SET_VOICE_MUTED':
+      return { ...state, isVoiceMuted: action.payload };
+    case 'SET_SPEAKING_PLAYER':
+        // Prevent flickering by only updating if the value changes
+        if (state.speakingPlayerId === action.payload) return state;
+        return { ...state, speakingPlayerId: action.payload };
     default:
       return state;
   }
@@ -109,13 +129,17 @@ interface UIStoreContextType extends UIStoreState {
     setIsFriendsPanelOpen: (isOpen: boolean) => void;
     setIsArchiveOpen: (isOpen: boolean) => void;
     setViewingReplay: (dare: Dare | null) => void;
+    // Voice Chat
+    connectVoiceChat: () => void;
+    disconnectVoiceChat: () => void;
+    handleToggleVoiceMute: () => void;
 }
 
 const UIStoreContext = createContext<UIStoreContextType | undefined>(undefined);
 
 export const UIStoreProvider = ({ children }: PropsWithChildren) => {
     const [state, dispatch] = useReducer(uiReducer, initialState);
-    const { currentPlayer } = useSocialStore();
+    const { currentPlayer, updatePlayer } = useSocialStore();
 
     useEffect(() => {
         preloadSounds();
@@ -164,6 +188,7 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
     };
 
     const handleEmojiReaction = (emoji: string) => {
+        if (!currentPlayer) return;
         const newReaction = { id: `reaction_${Date.now()}`, playerId: currentPlayer.id, emoji };
         dispatch({ type: 'ADD_REACTION', payload: newReaction });
         setTimeout(() => dispatch({ type: 'REMOVE_REACTION', payload: newReaction.id }), 3000);
@@ -175,6 +200,7 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
     };
     
     const handleSendGreeting = (content: string) => {
+        if (!currentPlayer) return;
         const newGreeting: FloatingGreeting = {
             id: `greeting_${Date.now()}`,
             fromName: currentPlayer.name,
@@ -184,6 +210,44 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         dispatch({ type: 'ADD_GREETING', payload: newGreeting });
         setTimeout(() => dispatch({ type: 'REMOVE_GREETING', payload: newGreeting.id }), 5000);
     };
+
+     // --- VOICE CHAT HANDLERS ---
+    const handleSetSpeaking = useCallback((isSpeaking: boolean) => {
+        if (!currentPlayer) return;
+        dispatch({ type: 'SET_SPEAKING_PLAYER', payload: isSpeaking ? currentPlayer.id : null });
+    }, [currentPlayer]);
+
+    const connectVoiceChat = useCallback(async () => {
+        if (state.isVoiceConnected) return;
+        const stream = await voiceService.startLocalStream(
+            () => handleSetSpeaking(true),
+            () => handleSetSpeaking(false)
+        );
+        if (stream) {
+            dispatch({ type: 'SET_VOICE_CONNECTED', payload: true });
+             // Ensure the mic starts in the correct state
+            voiceService.toggleMute(state.isVoiceMuted);
+        }
+    }, [state.isVoiceConnected, state.isVoiceMuted, handleSetSpeaking]);
+
+    const disconnectVoiceChat = useCallback(() => {
+        voiceService.stopLocalStream();
+        if (state.isVoiceConnected) {
+            dispatch({ type: 'SET_VOICE_CONNECTED', payload: false });
+            dispatch({ type: 'SET_SPEAKING_PLAYER', payload: null });
+        }
+    }, [state.isVoiceConnected]);
+    
+    const handleToggleVoiceMute = useCallback(() => {
+        if (!currentPlayer) return;
+        const newMuteState = !state.isVoiceMuted;
+        dispatch({ type: 'SET_VOICE_MUTED', payload: newMuteState });
+        updatePlayer(currentPlayer.id, { isMuted: newMuteState });
+        voiceService.toggleMute(newMuteState);
+        if (newMuteState) {
+            handleSetSpeaking(false);
+        }
+    }, [state.isVoiceMuted, currentPlayer, updatePlayer, handleSetSpeaking]);
 
     const value = useMemo(() => ({
         ...state,
@@ -200,7 +264,10 @@ export const UIStoreProvider = ({ children }: PropsWithChildren) => {
         setIsFriendsPanelOpen: (isOpen: boolean) => dispatch({ type: 'SET_FRIENDS_PANEL_OPEN', payload: isOpen }),
         setIsArchiveOpen: (isOpen: boolean) => dispatch({ type: 'SET_ARCHIVE_OPEN', payload: isOpen }),
         setViewingReplay: (dare: Dare | null) => dispatch({ type: 'SET_VIEWING_REPLAY', payload: dare }),
-    }), [state, setLoading, showNotification, showUnlock, showLevelUpNotification, hideLevelUpNotification]);
+        connectVoiceChat,
+        disconnectVoiceChat,
+        handleToggleVoiceMute,
+    }), [state, setLoading, showNotification, showUnlock, showLevelUpNotification, hideLevelUpNotification, connectVoiceChat, disconnectVoiceChat, handleToggleVoiceMute]);
 
     return (
         <UIStoreContext.Provider value={value}>
