@@ -14,6 +14,7 @@ const SOUND_SOURCES = {
   timesUp: 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg',
   numberClick: 'https://actions.google.com/sounds/v1/ui/camera_shutter.ogg',
   winGame: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_275101a1e1.mp3?filename=level-win-6416.mp3',
+  powerUp: 'https://actions.google.com/sounds/v1/magic/magic_chime.ogg',
 };
 
 type SoundKeys = keyof typeof SOUND_SOURCES;
